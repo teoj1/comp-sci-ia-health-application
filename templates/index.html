@@ -1,18 +1,81 @@
-<!Doc html>
+<!DOCTYPE html>
 <html lang="en">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Health Application</title>
         <link rel="stylesheet" href="styles.css">
-        <script src="index.js" defer></script>
+
     </head>
     <body>
+        <script src="index.js"></script>
+
         <div class="container">
             <h1>Health application</h1>
-            <button id="myButton">Click Me!</button>
-            <p id="message"></p>
+            <form id="healthForm">
+            <p class="instructions">Please fill in your details below:</p>
+            <div class="fname">
+                <label for="fname">First Name:</label>
+                <input type="text" name="fname" id="fname" placeholder="Type your name here..." required>
+            </div>
             
+            <div class="lname">
+                <label for="lname">Last Name:</label>
+                <input type="text" name="lname" id="lname" placeholder="Type your last name here..." required>
+            </div>
+            
+            <div class="weight">
+                <label for="weight"> Weight(kg): </label>
+                <input type="number" name="weight" id="weight" placeholder="Enter weight in kg" required>
+            </div>
+
+            <div class= "height">
+                <label for="height">Height(cm): </label>
+                <input type="number" name="height" id="height" placeholder="Enter height in cm" required>
+            </div>
+
+            <div class = "password"> 
+                <label for = "password">Password:</label>
+                <input type="password" name="password" id="password" placeholder="Enter your password" required>
+            </div>
+            <div class = "confirmPassword">
+                <label for = "confirmPassword">Confirm Password: </label>
+                <input type="password" name="confirmPassword" id="confirmPassword" placeholder="Re-enter your password" required>
+            </div>
+            
+            <div class="gender">
+                <label for="gender">Gender: </label>
+                <select name="gender" id="gender" required>
+                    <option value ="" disabled selected>Select your gender: </option>
+                    <option value = "female">Female</option>
+                    <option value = "male">Male</option>
+                    <option value = "other">Other</option>
+                    <option value = "prefernottosay">Prefer not to say</option>
+                </select>
+            </div>
+            
+            <div class="dietaryRestrictions">
+                <label for="dietaryRestrictions">Any Dietary Restrictions: </label>
+                <select name="dietaryRestrictions" id="dietaryRestrictions" required>
+                    <option value ="" disabled selected>Inform if you have any dietary restrictions: </option>
+                    <option value = "vegetarian">Vegetarian</option>
+                    <option value = "vegan">Vegan</option>
+                    <option value = "glutenFree">Gluten Free</option>
+                    <option value = "dairyFree">Dairy Free</option>
+                    <option value = "nothing">Nothing</option>
+                </select>
+            </div>
+            <button type="submit" class="button">Submit and Display</button>
+        </form>
+        <!-- Section to display output --> 
+        <div id="outputSection" class="hidden">
+            <p class="welcome-text">Hello, <span id="displayName"></span>!</p>
+            <p class="weight-text">Your weight is <span id="displayWeight"></span> kg.</p>
+            <p class = "height-text">Your height is <span id="displayHeight"></span> cm.</p>
+            <p class = "password-text">Your password is <span id="displayPassword"></span></p>
+            <p class = "gender-text">Gender: <span id="displayGender"></span></p>
+            <p class = "dietary-text">Dietary Restrictions: <span id="displayDietaryRestrictions"></span></p>
         </div>
     </body>
+
 </html>

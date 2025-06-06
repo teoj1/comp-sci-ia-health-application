@@ -7,7 +7,8 @@ def main():
     return render_template('index.html')
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5001)
+    app.run(debug=True)
+    
 
 
 # To run this server, use the command:
