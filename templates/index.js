@@ -27,6 +27,23 @@
     //gathering dietary preference input
     const dietaryRestrictionInput = document.getElementById('dietaryRestrictions');
     const displaydietaryRestriction = document.getElementById('displayDietaryRestrictions');
+
+    // gathering activity level input
+    const activityLevelInput = document.getElementById('activityLevel');
+    const displayActivityLevel = document.getElementById('displayActivityLevel');
+
+    // gathering health goal input 
+    const goalInput = document.getElementById('goal');
+    const displayGoal = document.getElementById('displayGoal');
+
+    // gathering allergies input
+    const allergiesInput = document.getElementById('allergies');
+    const displayAllergies = document.getElementById('displayAllergies');
+
+    // gathering food preferences input
+    const foodPreferencesInput = document.getElementById('foodPreferences');
+    const displayFoodPreferences = document.getElementById('displayFoodPreferences');
+
     // displaying content 
     form.addEventListener('submit', function(event) {
         event.preventDefault();
@@ -39,6 +56,10 @@
         const password2 = password2Input.value.trim();
         const gender = genderInput.value.trim();
         const dietaryRestriction = dietaryRestrictionInput.value.trim();
+        const activityLevel = activityLevelInput.value.trim();
+        const goal = goalInput.value.trim();
+        const allergies = allergiesInput.value.trim();
+        const foodPreferences = foodPreferencesInput.value.trim();
         // checking for first and last name input
         if (fname && lname) {
             displayName.textContent = fname + ' ' + lname;
@@ -107,6 +128,41 @@
             outputSection.classList.remove('hidden');
         } else {
             alert('Please select a dietary preference');
+            return;
+        }
+
+        // checking for activity level input 
+        if (activityLevel) {
+            displayActivityLevel.textContent = activityLevel;
+            outputSection.classList.remove('hidden');
+        } else {
+            alert('Please select an activity level');
+            return;
+        }
+
+        if (goal) {
+            displayGoal.textContent = goal;
+            outputSection.classList.remove('hidden');
+
+        } else {
+            alert('Please select a health goal');
+            return;
+        }
+        
+        if (allergies) {
+            displayAllergies.textContent = allergies;
+            outputSection.classList.remove('hidden');
+        }
+        else {
+            alert('Please enter any allergies you may have');
+            return;
+        }
+
+        if (foodPreferences) {
+            displayFoodPreferences.textContent = foodPreferences;
+            outputSection.classList.remove('hidden');
+        } else {
+            alert('Please enter any food preferences you may have');
             return;
         }
     });

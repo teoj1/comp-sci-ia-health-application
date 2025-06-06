@@ -65,6 +65,35 @@
                     <option value = "nothing">Nothing</option>
                 </select>
             </div>
+            <div class="activityLevel">
+                <label for="activityLevel">Activity Level: </label>
+                <select name="activityLevel" id="activityLevel" required>
+                    <option value="" disabled selected>Select your activity level: </option>
+                    <option value="sedentary">Sedentary</option>
+                    <option value="lightlyActive">Lightly Active</option>
+                    <option value="moderatelyActive">Moderately Active</option>
+                    <option value="veryActive">Very Active</option>
+                    <option value="superActive">Super Active</option>
+                </select> 
+            </div>
+            <div class="goal">
+                <label for="goal">Health Goal: </label>
+                <select name="goal" id="goal" required>
+                    <option value="" disabled selected>Select your health goal: </option>
+                    <option value="weightLoss">Weight Loss</option>
+                    <option value="muscleGain">Muscle Gain</option>
+                    <option value="maintainWeight">Maintain Weight</option>
+                    <option value="improveEndurance">Improve Endurance</option>
+                </select>
+            </div>
+            <div class="allergies">
+                <label for="allergies">Allergies: </label>
+                <input type="text" name="allergies" id="allergies" placeholder="List any allergies you have">
+            </div>
+            <div class="foodPreferences">
+                <label for="foodPreferences">Food Preferences: </label>
+                <input type="text" name="foodPreferences" id="foodPreferences" placeholder="List your food preferences">
+            </div>
             <button type="submit" class="button">Submit and Display</button>
         </form>
         <!-- Section to display output --> 
@@ -75,6 +104,11 @@
             <p class = "password-text">Your password is <span id="displayPassword"></span></p>
             <p class = "gender-text">Gender: <span id="displayGender"></span></p>
             <p class = "dietary-text">Dietary Restrictions: <span id="displayDietaryRestrictions"></span></p>
+            <p class= "activity-text">Activity Level: <span id="displayActivityLevel"></span></p>
+            <p class = "goal-text">Health Goal: <span id="displayGoal"></span></p>
+            <p class = "allergies-text">Allergies: <span id="displayAllergies"></span></p>
+            <p class = "food-text">Food Preferences: <span id="displayFoodPreferences"></span></p>
+            
         </div>
     </body>
 
