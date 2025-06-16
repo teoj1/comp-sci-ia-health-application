@@ -1,13 +1,17 @@
-from flask import Flask, render_template
+from flask import Flask, render_template, jsonify 
 from flask_sqlalchemy import SQLAlchemy 
 import uuid
 from flask import request
 import os
+import json
 
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
+
 db = SQLAlchemy(app)
+
+
 class User(db.Model):
     id = db.Column(db.String(36), primary_key=True)  # UUID
     fname = db.Column(db.String(100))
@@ -46,6 +50,35 @@ def dashboard():
     db.session.add(user)
     db.session.commit()
     return render_template('dashboard.html')
+with open('meals.json', 'r') as f:
+    MEALS = json.load(f)
+
+@app.route('/food')
+def health():
+    return render_template('food.html')
+
+
+@app.route('/recommend')
+def recommend():
+    with open('meals.json', 'r') as f:
+        meals = json.load(f)
+    recommendations = {}
+    for category in ['breakfast', 'lunch', 'dinner']:
+        recommendations[category] = meals.get(category, [])[:3]
+    return jsonify(recommendations)
+
+@app.route('/meal/<int:meal_id>')
+def meal_details(meal_id):
+    for meals in MEALS.values():
+        for meal in meals:
+            if meal['id'] == meal_id:
+                return jsonify(meal)
+    return jsonify({"error": "Meal not found"}), 404
+
+
+@app.route('/exercise')
+def exercise(): 
+    return render_template('exercise.html')
 
 if __name__ == '__main__':
     with app.app_context():

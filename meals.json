@@ -1,0 +1,60 @@
+{
+  "breakfast": [
+    {
+      "id": 1,
+      "name": "Protein Oatmeal",
+      "ingredients": ["oats", "protein powder", "berries"],
+      "cook_time": 10,
+      "diet": ["vegetarian", "high-protein"],
+      "nutrition": {
+        "calories": 380,
+        "protein": 25,
+        "carbs": 45,
+        "fat": 8
+      }
+    },
+    {
+      "id": 2,
+      "name": "Avocado Toast",
+      "ingredients": ["whole-grain bread", "avocado", "eggs"],
+      "cook_time": 15,
+      "diet": ["vegetarian"],
+      "nutrition": {
+        "calories": 320,
+        "protein": 12,
+        "carbs": 35,
+        "fat": 16
+      }
+    }
+  ],
+  "lunch": [
+    {
+      "id": 3,
+      "name": "Quinoa Salad",
+      "ingredients": ["quinoa", "chickpeas", "vegetables"],
+      "cook_time": 20,
+      "diet": ["vegan", "gluten-free"],
+      "nutrition": {
+        "calories": 420,
+        "protein": 15,
+        "carbs": 60,
+        "fat": 12
+      }
+    }
+  ],
+  "dinner": [
+    {
+      "id": 4,
+      "name": "Salmon Bowl",
+      "ingredients": ["salmon", "rice", "broccoli"],
+      "cook_time": 25,
+      "diet": ["pescatarian", "high-protein"],
+      "nutrition": {
+        "calories": 550,
+        "protein": 35,
+        "carbs": 45,
+        "fat": 22
+      }
+    }
+  ]
+}
