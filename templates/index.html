@@ -4,15 +4,15 @@
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Health Application</title>
-        <link rel="stylesheet" href="styles.css">
+        <link rel="stylesheet" href="/static/styles.css">
 
     </head>
     <body>
-        <script src="index.js"></script>
+        <script src="/static/index.js"></script>
 
         <div class="container">
             <h1>Health application</h1>
-            <form id="healthForm" method="POST" action="dashboard">
+            <form id="healthForm" method="POST" action="/dashboard">
             <p class="instructions">Please fill in your details below:</p>
             <div class="fname">
                 <label for="fname">First Name:</label>
@@ -96,20 +96,7 @@
             </div>
             <button type="submit" class="button">Submit and Display</button>
         </form>
-        <!-- Section to display output --> 
-        <div id="outputSection" class="hidden">
-            <p class="welcome-text">Hello, <span id="displayName"></span>!</p>
-            <p class="weight-text">Your weight is <span id="displayWeight"></span> kg.</p>
-            <p class = "height-text">Your height is <span id="displayHeight"></span> cm.</p>
-            <p class = "password-text">Your password is <span id="displayPassword"></span></p>
-            <p class = "gender-text">Gender: <span id="displayGender"></span></p>
-            <p class = "dietary-text">Dietary Restrictions: <span id="displayDietaryRestrictions"></span></p>
-            <p class= "activity-text">Activity Level: <span id="displayActivityLevel"></span></p>
-            <p class = "goal-text">Health Goal: <span id="displayGoal"></span></p>
-            <p class = "allergies-text">Allergies: <span id="displayAllergies"></span></p>
-            <p class = "food-text">Food Preferences: <span id="displayFoodPreferences"></span></p>
-
-        </div>
+        
     </body>
 
 </html>

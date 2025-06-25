@@ -4,6 +4,7 @@ import uuid
 from flask import request
 import os
 import json
+from werkzeug.security import generate_password_hash
 
 
 app = Flask(__name__)
@@ -39,7 +40,7 @@ def dashboard():
         lname=request.form['lname'],
         weight=request.form['weight'],
         height=request.form['height'],
-        password=request.form['password'],
+        password=generate_password_hash(request.form['password']),
         gender=request.form['gender'],
         dietary_restrictions=request.form['dietaryRestrictions'],
         activity_level=request.form['activityLevel'],
@@ -49,12 +50,13 @@ def dashboard():
     )
     db.session.add(user)
     db.session.commit()
-    return render_template('dashboard.html')
+    return render_template('dashboard.html', user=user)
+
 with open('meals.json', 'r') as f:
     MEALS = json.load(f)
 
 @app.route('/food')
-def health():
+def food():
     return render_template('food.html')
 
 
@@ -63,7 +65,7 @@ def recommend():
     with open('meals.json', 'r') as f:
         meals = json.load(f)
     recommendations = {}
-    for category in ['breakfast', 'lunch', 'dinner']:
+    for category in ['breakfast', 'lunch', 'dinner', 'snacks']:
         recommendations[category] = meals.get(category, [])[:3]
     return jsonify(recommendations)
 

@@ -56,5 +56,20 @@
         "fat": 22
       }
     }
+  ],
+  "snacks": [
+    {
+      "id": 5,
+      "name": "Greek Yogurt with Honey",
+      "ingredients": ["Greek yogurt", "honey", "nuts"],
+      "cook_time": 5,
+      "diet": ["vegetarian", "high-protein"],
+      "nutrition": {
+        "calories": 200,
+        "protein": 15,
+        "carbs": 20,
+        "fat": 8
+      }
+    }
   ]
 }
