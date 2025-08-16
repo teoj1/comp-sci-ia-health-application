@@ -7,15 +7,20 @@
     <link rel="stylesheet" href="/static/food.css">
 </head>
 <body>
+    <script>
+        window.currentUserId = "{{ user_id }}";
+    </script>
     <script src="/static/food.js"></script>
+    
     <div class="container">
         <h1 text-align="center">Daily Dietary and Meal Recommendations</h1>
     </div>
     <div class="meal-recommendations">
         <h2>Meal Recommendations</h2>
         <p>Here you can find personalized meal recommendations based on your dietary preferences and restrictions.</p>
-    <button id="generateMealsBtn">Generate Meal Options</button>
+    <button id="generateMealsBtn" class="button">Generate Meal Options</button>
     <div class="meal-sections" id ="mealSections">
+        
     </div>
     
 </body>

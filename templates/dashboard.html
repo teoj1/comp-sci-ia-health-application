@@ -9,7 +9,7 @@
 </head>
 <body>
     <script src="dashboard.js"></script>
-    <a href="/food" class="food-link">Go to Food Page</a>
+    <a href="{{ url_for('food', user_id=user.id) }}" class="button">Go to the food section of the application</a>
     <a href="exercise.html" class="exercise-link">Exercise and Fitness Statistics in Here</a>
     
 </body>

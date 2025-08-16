@@ -74,20 +74,25 @@ def dashboard():
     )
     db.session.add(user)
     db.session.commit()
+    print(user.__dict__)
     return render_template('dashboard.html', user=user)
+
 
 with open('meals.json', 'r') as f:
     MEALS = json.load(f)
 
 @app.route('/food')
 def food():
-    return render_template('food.html')
+    user_id = request.args.get('user_id')  # Or get from session
+    return render_template('food.html', user_id=user_id)
 
 
 @app.route('/recommend')
 def recommend():
     user_id = request.args.get('user_id')
     user = db.session.get(User, user_id)
+    if not user: 
+        return jsonify({"error": "User not found"}), 404
     allergies = user.allergies.split(',') if user.allergies else []
     food_preferences = user.food_preferences.split(',') if user.food_preferences else []
     meal_keywords = {
@@ -107,22 +112,17 @@ def recommend():
                 "nutrition": extract_nutrition(food)
             } for food in meals
         ]
-        
-    # with open('meals.json', 'r') as f:
-    #     meals = json.load(f)
-    # recommendations = {}
-    # for category in ['breakfast', 'lunch', 'dinner', 'snacks']:
-    #     recommendations[category] = meals.get(category, [])[:3]
-    # return jsonify(recommendations)
+    return jsonify(recommendations)
+
 def extract_nutrition(food):
     macros = { 'protein': 0, 'carbs': 0, 'fat': 0, 'calories': 0 }
     for nut in food.get("foodNutrients", []):
-        num = nut.get('nutrientNumber') or (nut.get('nutrient', {}).get('number'))
+        num = str(nut.get('nutrientNumber') or nut.get('nutrient', {}).get('number'))
         amt = nut.get('amount', 0)
-        if num == 203: macros['protein'] = amt
-        elif num == 205: macros['carbs'] = amt
-        elif num == 204: macros['fat'] = amt
-        elif num == 208: macros['calories'] = amt
+        if num in ('203', 203): macros['protein'] = amt
+        elif num in ('205', 205): macros['carbs'] = amt
+        elif num in ('204', 204): macros['fat'] = amt
+        elif num in ('208', 208): macros['calories'] = amt
     return macros
 
 
@@ -143,6 +143,7 @@ if __name__ == '__main__':
     with app.app_context():
         db.create_all()
     app.run(debug=True)
+
     
 
 
