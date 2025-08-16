@@ -5,13 +5,32 @@ from flask import request
 import os
 import json
 from werkzeug.security import generate_password_hash
+import requests
 
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
-
+USDA_API_KEY = "BQazS4IWGw7VKfBNHFbEJfLPab1wz1ROSZf1xS6K"
 db = SQLAlchemy(app)
 
+def fetch_usda_meals(category_keywords, user_allergies, wanted_count=5):
+    url = f"https://api.nal.usda.gov/fdc/v1/foods/search?query={category_keywords}&api_key={USDA_API_KEY}"
+    payload = {
+        "query": ", ".join(category_keywords), # e.g. ['eggs', 'oatmeal']
+        "pageSize": 60,
+        "dataType": ["Foundation", "SR Legacy", "Survey (FNDDS)"]
+    }
+    resp = requests.post(url, json=payload)
+    foods = resp.json().get('foods', [])
+    # Filter out items containing user allergies
+    safe_foods = []
+    for food in foods:
+        text = (food.get('description', '') + ' ' + food.get('ingredients', '')).lower()
+        if not any(a.lower() in text for a in user_allergies):
+            safe_foods.append(food)
+        if len(safe_foods) == wanted_count:
+            break
+    return safe_foods
 
 class User(db.Model):
     id = db.Column(db.String(36), primary_key=True)  # UUID
@@ -67,12 +86,45 @@ def food():
 
 @app.route('/recommend')
 def recommend():
-    with open('meals.json', 'r') as f:
-        meals = json.load(f)
+    user_id = request.args.get('user_id')
+    user = db.session.get(User, user_id)
+    allergies = user.allergies.split(',') if user.allergies else []
+    food_preferences = user.food_preferences.split(',') if user.food_preferences else []
+    meal_keywords = {
+        'breakfast': ['eggs', 'oatmeal', 'yogurt', 'fruit', 'cereal', 'toast'],
+        'lunch': ['salad', 'sandwich', 'chicken', 'rice', 'soup', 'beef'],
+        'dinner': ['fish', 'steak', 'pasta', 'vegetables', 'curry'],
+        'snacks': ['nuts', 'bar', 'cheese', 'fruit', 'yogurt']
+    }
     recommendations = {}
-    for category in ['breakfast', 'lunch', 'dinner', 'snacks']:
-        recommendations[category] = meals.get(category, [])[:3]
-    return jsonify(recommendations)
+    for category, keywords in meal_keywords.items():
+        meals = fetch_usda_meals(keywords, allergies, wanted_count=5)
+        recommendations[category]= [
+            {
+                "id": food["fdcId"],
+                "description": food["description"],
+                "ingredients": food.get("ingredients", "Unknown"),
+                "nutrition": extract_nutrition(food)
+            } for food in meals
+        ]
+        
+    # with open('meals.json', 'r') as f:
+    #     meals = json.load(f)
+    # recommendations = {}
+    # for category in ['breakfast', 'lunch', 'dinner', 'snacks']:
+    #     recommendations[category] = meals.get(category, [])[:3]
+    # return jsonify(recommendations)
+def extract_nutrition(food):
+    macros = { 'protein': 0, 'carbs': 0, 'fat': 0, 'calories': 0 }
+    for nut in food.get("foodNutrients", []):
+        num = nut.get('nutrientNumber') or (nut.get('nutrient', {}).get('number'))
+        amt = nut.get('amount', 0)
+        if num == 203: macros['protein'] = amt
+        elif num == 205: macros['carbs'] = amt
+        elif num == 204: macros['fat'] = amt
+        elif num == 208: macros['calories'] = amt
+    return macros
+
 
 @app.route('/meal/<int:meal_id>')
 def meal_details(meal_id):
