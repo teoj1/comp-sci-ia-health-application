@@ -11,7 +11,7 @@ function loadMeals() {
 function displayMeals(meals) {
     const mealSections = document.getElementById('mealSections');
     mealSections.innerHTML = '';
-    ['breakfast', 'lunch', 'dinner'].forEach(type => {
+    ['breakfast', 'lunch', 'dinner', 'snacks'].forEach(type => {
         if (meals[type]) {
             const section = document.createElement('div');
             section.innerHTML = `<h2>${type.charAt(0).toUpperCase() + type.slice(1)}</h2>`;
@@ -19,6 +19,8 @@ function displayMeals(meals) {
                 section.innerHTML += `<div class="meal-card">
                     <h3>${meal.name}</h3>
                     <p>Ingredients: ${meal.ingredients.join(', ')}</p>
+                    <p>Calories: ${meal.nutrition.calories} kcal</p
+                    <p>Macronutrients: ${meal.nutrition.protein}g protein, ${meal.nutrition.carbs}g carbs, ${meal.nutrition.fat}g fat</p>
                 </div>`;
             });
             mealSections.appendChild(section);

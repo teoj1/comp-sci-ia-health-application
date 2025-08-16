@@ -45,7 +45,7 @@
     const displayFoodPreferences = document.getElementById('displayFoodPreferences');
 
     // displaying content 
-    form.addEventListener('submit', function(event) {
+    form.addEventListener('dashboard', function(event) {
         event.preventDefault();
         // trimming input values 
         const fname = document.getElementById('fname').value.trim();

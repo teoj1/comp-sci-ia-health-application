@@ -31,8 +31,13 @@ class User(db.Model):
 def main():
     return render_template('index.html')
 
+# @app.route('/submit', methods=['POST'])
+# def submit():
+#     return redirect('/dashboard')
+
 @app.route('/dashboard', methods=['POST'])
 def dashboard():
+
     user_id=str(uuid.uuid4()) ## generating userID 
     user = User(
         id=user_id,
