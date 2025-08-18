@@ -3,11 +3,78 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Health Application</title>
-    <link rel="stylesheet" href="exercise.css">
+    <title>Log Activity | Health Application</title>
+    <link rel="stylesheet" href="/static/exercise.css">
 </head>
 <body>
-    <script src="exercise.js"></script>
-    
+    <div class="exercise-container">
+        <h1>Log Activity</h1>
+        <form id="activityForm" autocomplete="off">
+            <div class="form-group">
+                <label for="activityType">Activity Type</label>
+                <input list="activityOptions" id="activityType" name="activityType" required placeholder="e.g. Running">
+                <datalist id="activityOptions">
+                    <option value="Running">
+                    <option value="Cycling">
+                    <option value="Swimming">
+                    <option value="Walking">
+                    <option value="Yoga">
+                    <option value="Strength Training">
+                    <option value="Rowing">
+                    <option value="Dancing">
+                </datalist>
+            </div>
+            <div class="form-group">
+                <label for="duration">Duration (minutes)</label>
+                <input type="number" id="duration" name="duration" min="1" max="300" required>
+            </div>
+            <div class="form-group">
+                <label for="intensity">Intensity: <span id="intensityValue">2</span></label>
+                <input type="range" id="intensity" name="intensity" min="1" max="5" value="2">
+                <div class="intensity-labels">
+                    <span>Low</span>
+                    <span>High</span>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="calories">Calories Burned</label>
+                <input type="number" id="calories" name="calories" min="0" required readonly>
+            </div>
+            <div class="form-group">
+                <label for="dateTime">Date & Time</label>
+                <input type="datetime-local" id="dateTime" name="dateTime" required>
+            </div>
+            <button type="submit" class="save-btn">Save Activity</button>
+        </form>
+
+        <div class="filter-section">
+            <h2>Activity History</h2>
+            <div class="filters">
+                <label>
+                    From: <input type="date" id="filterFrom">
+                </label>
+                <label>
+                    To: <input type="date" id="filterTo">
+                </label>
+                <label>
+                    Type:
+                    <select id="filterType">
+                        <option value="">All</option>
+                        <option value="Running">Running</option>
+                        <option value="Cycling">Cycling</option>
+                        <option value="Swimming">Swimming</option>
+                        <option value="Walking">Walking</option>
+                        <option value="Yoga">Yoga</option>
+                        <option value="Strength Training">Strength Training</option>
+                        <option value="Rowing">Rowing</option>
+                        <option value="Dancing">Dancing</option>
+                    </select>
+                </label>
+                <button id="applyFilters" type="button">Apply</button>
+            </div>
+        </div>
+        <div id="historyTable"></div>
+    </div>
+    <script src="/static/exercise.js"></script>
 </body>
 </html>

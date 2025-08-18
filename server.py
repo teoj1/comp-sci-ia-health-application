@@ -6,14 +6,14 @@ import os
 import json
 from werkzeug.security import generate_password_hash
 import requests
-
+from datetime import datetime 
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
 USDA_API_KEY = "BQazS4IWGw7VKfBNHFbEJfLPab1wz1ROSZf1xS6K"
 db = SQLAlchemy(app)
 
-def fetch_usda_meals(category_keywords, user_allergies, wanted_count=5):
+def fetch_usda_meals(category_keywords, user_allergies, wanted_count=3):
     url = f"https://api.nal.usda.gov/fdc/v1/foods/search?api_key={USDA_API_KEY}"
     payload = {
         "query": ", ".join(category_keywords),
@@ -56,6 +56,15 @@ class User(db.Model):
     allergies = db.Column(db.String(200))
     food_preferences = db.Column(db.String(200))
 
+class Activity(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.String(36), db.ForeignKey('user.id'))
+    activity_type = db.Column(db.String(100))
+    duration = db.Column(db.Integer)  # in minutes
+    intensity = db.Column(db.Integer) # 1-5
+    calories = db.Column(db.Integer)
+    timestamp = db.Column(db.DateTime)
+
 @app.route('/')
 def main():
     return render_template('index.html')
@@ -96,8 +105,54 @@ def food():
     user_id = request.args.get('user_id')  # Or get from session
     return render_template('food.html', user_id=user_id)
 
+@app.route('/api/activity', methods=['POST'])
+def save_activity():
+    data = request.get_json()
+    user_id = data.get('user_id')
+    if not user_id or not db.session.get(User, user_id):
+        return jsonify({'error': 'Invalid user'}), 400
+    activity = Activity(
+        user_id=user_id,
+        activity_type=data.get('activityType'),
+        duration=int(data.get('duration', 0)),
+        intensity=int(data.get('intensity', 1)),
+        calories=int(data.get('calories', 0)),
+        timestamp=datetime.fromisoformat(data.get('dateTime'))
+    )
+    db.session.add(activity)
+    db.session.commit()
+    return jsonify({'success': True, 'activity_id': activity.id})
+
+@app.route('/api/activity', methods=['GET'])
+def get_activity():
+    user_id = request.args.get('user_id')
+    if not user_id or not db.session.get(User, user_id):
+        return jsonify({'error': 'Invalid user'}), 400
+    query = Activity.query.filter_by(user_id=user_id)
+    # Optional filters
+    from_date = request.args.get('from')
+    to_date = request.args.get('to')
+    activity_type = request.args.get('type')
+    if from_date:
+        query = query.filter(Activity.timestamp >= from_date)
+    if to_date:
+        query = query.filter(Activity.timestamp <= to_date + " 23:59:59")
+    if activity_type:
+        query = query.filter_by(activity_type=activity_type)
+    activities = query.order_by(Activity.timestamp.desc()).all()
+    return jsonify([
+        {
+            'id': a.id,
+            'activityType': a.activity_type,
+            'duration': a.duration,
+            'intensity': a.intensity,
+            'calories': a.calories,
+            'dateTime': a.timestamp.isoformat()
+        } for a in activities
+    ])
+
 def extract_nutrition(food):
-    macros = {'protein': None, 'fat': None, 'calories': None}
+    macros = {'protein': None, 'fat': None, 'carbs': None, 'calories': None}
     for nut in food.get("foodNutrients", []):
         num = str(nut.get('nutrientNumber') or nut.get('nutrient', {}).get('number') or '')
         # Use 'value' if present, else fallback to 'amount'
@@ -134,7 +189,7 @@ def recommend():
     }
     recommendations = {}
     for category, keywords in meal_keywords.items():
-        meals = fetch_usda_meals(keywords, allergies, wanted_count=5)
+        meals = fetch_usda_meals(keywords, allergies, wanted_count=3)
         recommendations[category]= [
             {
                 "id": food["fdcId"],
@@ -157,6 +212,7 @@ def meal_details(meal_id):
 
 @app.route('/exercise')
 def exercise(): 
+    user_id = request.args.get('user_id')
     return render_template('exercise.html')
 
 if __name__ == '__main__':

@@ -1,35 +1,65 @@
 body {
-    font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: linear-gradient(135deg, #e0eafc 0%, #cfdef3 100%);
-    padding: 0;
+    font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
+    background: linear-gradient(120deg, #e0eafc 0%, #cfdef3 100%);
     margin: 0;
-    color: #222;
+    color: #232946;
     min-height: 100vh;
 }
 
 .container {
     max-width: 900px;
-    margin: 40px auto 0 auto;
-    background: rgba(255,255,255,0.95);
-    border-radius: 18px;
-    box-shadow: 0 8px 32px rgba(44, 62, 80, 0.12);
+    margin: 48px auto 0 auto;
+    background: rgba(255,255,255,0.98);
+    border-radius: 20px;
+    box-shadow: 0 8px 32px rgba(44, 62, 80, 0.13);
     padding: 40px 32px 24px 32px;
-}
-
-h1, h2, h3 {
-    font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
-    font-weight: 700;
-    letter-spacing: 0.5px;
 }
 
 h1 {
     color: #2d5cff;
     text-align: center;
-    margin-bottom: 18px;
+    margin-bottom: 8px;
+    font-size: 2.2rem;
+    letter-spacing: 1px;
+}
+
+h2 {
+    color: #6a82fb;
+    margin-bottom: 14px;
+    font-size: 1.3rem;
+    border-bottom: 2px solid #e3e8ee;
+    padding-bottom: 4px;
+    letter-spacing: 0.5px;
 }
 
 .meal-recommendations {
-    margin-top: 24px;
+    max-width: 900px;
+    margin: 0 auto 24px auto;
+    background: rgba(255,255,255,0.95);
+    border-radius: 16px;
+    box-shadow: 0 4px 16px rgba(44, 62, 80, 0.10);
+    padding: 24px 24px 12px 24px;
+}
+
+.button {
+    display: block;
+    margin: 0 auto 32px auto;
+    background: linear-gradient(90deg, #2d5cff 60%, #6a82fb 100%);
+    color: white;
+    border: none;
+    padding: 14px 38px;
+    border-radius: 8px;
+    font-size: 1.08rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.3s, box-shadow 0.3s, transform 0.2s;
+    box-shadow: 0 2px 8px rgba(44, 62, 80, 0.08);
+    letter-spacing: 0.5px;
+}
+.button:hover {
+    background: linear-gradient(90deg, #6a82fb 60%, #2d5cff 100%);
+    box-shadow: 0 6px 18px rgba(44, 62, 80, 0.13);
+    transform: translateY(-2px) scale(1.03);
 }
 
 .meal-sections {
@@ -47,44 +77,39 @@ h1 {
     transition: box-shadow 0.3s;
 }
 
-.meal-section h2 {
-    color: #2d5cff;
-    border-bottom: 2px solid #2d5cff;
-    padding-bottom: 8px;
-    margin-top: 0;
-    margin-bottom: 18px;
-}
-
 .meal-options {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
     gap: 22px;
     margin-top: 18px;
 }
 
 .meal-card {
     background: #fff;
-    border: 1.5px solid #e3e8ee;
-    border-radius: 10px;
-    padding: 22px 18px;
-    box-shadow: 0 2px 8px rgba(44, 62, 80, 0.06);
-    transition: transform 0.2s, box-shadow 0.2s;
+    border: none;
+    border-radius: 14px;
+    padding: 22px 18px 18px 18px;
+    box-shadow: 0 4px 18px rgba(44, 62, 80, 0.10);
+    transition: transform 0.18s, box-shadow 0.18s;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
+    position: relative;
+    overflow: hidden;
 }
-
 .meal-card:hover {
     transform: translateY(-6px) scale(1.025);
-    box-shadow: 0 8px 24px rgba(44, 62, 80, 0.13);
-    border-color: #2d5cff;
+    box-shadow: 0 12px 32px rgba(44, 62, 80, 0.16);
+    border: 1.5px solid #2d5cff;
 }
 
 .meal-card h3 {
     color: #2d5cff;
     margin-top: 0;
     margin-bottom: 10px;
-    font-size: 1.18rem;
+    font-size: 1.13rem;
+    font-weight: 700;
+    letter-spacing: 0.2px;
 }
 
 .meal-card p {
@@ -93,56 +118,48 @@ h1 {
     font-size: 1rem;
 }
 
-.meal-image {
-    width: 100%;
-    height: 140px;
-    object-fit: cover;
-    border-radius: 8px;
-    margin-bottom: 12px;
+.nutrition-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 10px;
+    margin-top: 6px;
+}
+.nutri-badge {
     background: #e3e8ee;
-}
-
-.nutrition-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 10px;
-    margin: 12px 0;
-    background: #f4f8fb;
-    padding: 10px;
-    border-radius: 6px;
-}
-
-.nutrition-grid span {
-    font-size: 0.95rem;
     color: #2d5cff;
-}
-
-.details-btn {
-    background: linear-gradient(90deg, #2d5cff 60%, #6a82fb 100%);
-    color: white;
-    border: none;
-    padding: 9px 18px;
-    border-radius: 5px;
-    cursor: pointer;
+    border-radius: 6px;
+    padding: 3px 10px;
+    font-size: 0.97rem;
     font-weight: 600;
-    margin-top: 12px;
-    transition: background 0.3s, box-shadow 0.3s;
-    box-shadow: 0 2px 8px rgba(44, 62, 80, 0.08);
 }
+.nutri-badge.cal { background: #ffe6e6; color: #e74c3c; }
+.nutri-badge.pro { background: #e6f7ff; color: #2980b9; }
+.nutri-badge.carb { background: #fffbe6; color: #bfa100; }
+.nutri-badge.fat { background: #e6ffe6; color: #27ae60; }
 
-.details-btn:hover {
-    background: linear-gradient(90deg, #6a82fb 60%, #2d5cff 100%);
-    box-shadow: 0 4px 16px rgba(44, 62, 80, 0.13);
+.ingredients {
+    font-size: 0.97rem;
+    color: #444;
+    margin-top: 8px;
+    word-break: break-word;
+    background: #f4f8fb;
+    border-radius: 6px;
+    padding: 7px 10px;
+    margin-bottom: 0;
 }
 
 @media (max-width: 700px) {
-    .container {
-        padding: 18px 6px;
+    .container, .meal-recommendations {
+        padding: 12px 2vw;
     }
     .meal-section {
         padding: 16px 8px;
     }
     .meal-options {
         grid-template-columns: 1fr;
+    }
+    .meal-card {
+        padding: 14px 8px 12px 8px;
     }
 }
