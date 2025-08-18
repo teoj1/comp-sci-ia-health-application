@@ -21,9 +21,10 @@ function displayMeals(meals) {
                 <div class="meal-card">
                     <h3>${meal.description}</h3>
                     <p>Ingredients: ${Array.isArray(meal.ingredients) ? meal.ingredients.join(', ') : meal.ingredients}</p>
+                    <p>Following values are per 100g of the meal:</p>
                     <p>Calories: ${meal.nutrition.calories} kcal</p>
                     <p>Protein: ${meal.nutrition.protein}g</p>
-                    <p>Macronutrients: ${meal.nutrition.protein}g protein, ${meal.nutrition.carbs}g carbs, ${meal.nutrition.fat}g fat</p>
+                    <p>Macronutrients: ${meal.nutrition.protein}g protein, ${meal.nutrition.carbs}g carbohydrates, ${meal.nutrition.fat}g fat</p>
                 </div>
             `).join('');
             mealSections.appendChild(section);

@@ -14,22 +14,32 @@ USDA_API_KEY = "BQazS4IWGw7VKfBNHFbEJfLPab1wz1ROSZf1xS6K"
 db = SQLAlchemy(app)
 
 def fetch_usda_meals(category_keywords, user_allergies, wanted_count=5):
-    url = f"https://api.nal.usda.gov/fdc/v1/foods/search?query={category_keywords}&api_key={USDA_API_KEY}"
+    url = f"https://api.nal.usda.gov/fdc/v1/foods/search?api_key={USDA_API_KEY}"
     payload = {
-        "query": ", ".join(category_keywords), # e.g. ['eggs', 'oatmeal']
+        "query": ", ".join(category_keywords),
         "pageSize": 60,
         "dataType": ["Foundation", "SR Legacy", "Survey (FNDDS)"]
     }
     resp = requests.post(url, json=payload)
     foods = resp.json().get('foods', [])
-    # Filter out items containing user allergies
     safe_foods = []
     for food in foods:
         text = (food.get('description', '') + ' ' + food.get('ingredients', '')).lower()
         if not any(a.lower() in text for a in user_allergies):
-            safe_foods.append(food)
-        if len(safe_foods) == wanted_count:
-            break
+            # Fetch full nutrient info for this food
+            fdc_id = food.get('fdcId')
+            if not fdc_id:
+                continue
+            detail_url = f"https://api.nal.usda.gov/fdc/v1/food/{fdc_id}?api_key={USDA_API_KEY}"
+            detail_resp = requests.get(detail_url)
+            if detail_resp.status_code == 200:
+                food_detail = detail_resp.json()
+                # Merge description and ingredients from search result for consistency
+                food_detail['description'] = food.get('description', '')
+                food_detail['ingredients'] = food.get('ingredients', 'Unknown')
+                safe_foods.append(food_detail)
+            if len(safe_foods) == wanted_count:
+                break
     return safe_foods
 
 class User(db.Model):
@@ -86,6 +96,27 @@ def food():
     user_id = request.args.get('user_id')  # Or get from session
     return render_template('food.html', user_id=user_id)
 
+def extract_nutrition(food):
+    macros = {'protein': None, 'fat': None, 'calories': None}
+    for nut in food.get("foodNutrients", []):
+        num = str(nut.get('nutrientNumber') or nut.get('nutrient', {}).get('number') or '')
+        # Use 'value' if present, else fallback to 'amount'
+        amt = nut.get('value', nut.get('amount', 0))
+        if num == '203':  # Protein
+            macros['protein'] = amt
+        elif num == '204':  # Fat
+            macros['fat'] = amt
+        elif num == '205':  # Carbohydrates
+            macros['carbs'] = amt
+        elif num == '208':  # Energy (kcal)
+            macros['calories'] = amt
+    # Fallback to 0 if missing
+    for k in macros:
+        if macros[k] is None:
+            macros[k] = 0
+    return macros
+
+
 
 @app.route('/recommend')
 def recommend():
@@ -114,17 +145,6 @@ def recommend():
         ]
     return jsonify(recommendations)
 
-def extract_nutrition(food):
-    macros = { 'protein': 0, 'carbs': 0, 'fat': 0, 'calories': 0 }
-    for nut in food.get("foodNutrients", []):
-        num = str(nut.get('nutrientNumber') or nut.get('nutrient', {}).get('number'))
-        amt = nut.get('amount', 0)
-        if num in ('203', 203): macros['protein'] = amt
-        elif num in ('205', 205): macros['carbs'] = amt
-        elif num in ('204', 204): macros['fat'] = amt
-        elif num in ('208', 208): macros['calories'] = amt
-    return macros
-
 
 @app.route('/meal/<int:meal_id>')
 def meal_details(meal_id):
@@ -143,9 +163,6 @@ if __name__ == '__main__':
     with app.app_context():
         db.create_all()
     app.run(debug=True)
-
-    
-
 
 # To run this server, use the command:
 # python -m flask --app server run
