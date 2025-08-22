@@ -2,7 +2,7 @@
 let activityHistory = JSON.parse(localStorage.getItem('activityHistory') || "[]");
 
 function calculateCalories(type, duration, intensity) {
-    // Simple MET-based estimation (for demo)
+    // Simple MET-based estimation 
     const METS = {
         "Running": 9.8,
         "Cycling": 7.5,

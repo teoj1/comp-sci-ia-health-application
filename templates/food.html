@@ -22,6 +22,32 @@
     <div class="meal-sections" id ="mealSections">
         
     </div>
+    <div class="meal-input">
+        <h2>Input Your Meal</h2>
+        <form id="mealForm">
+            <label for="mealName">Meal Name:</label>
+            <input type="text" id="mealName" name="mealName" required>
+            
+            <label for="mealDescription">Meal Description:</label>
+            <textarea id="mealDescription" name="mealDescription" required></textarea>
+            
+            <button type="submit" class="button">Submit Meal</button>
+        </form>
+    </div>
+    <div class ="meal-history" id="mealHistory">
+        <h3>Meal History</h3>
+        <p>View your past meals and dietary choices.</p>
+        <button id="viewMealHistoryBtn" class="button">View Meal History</button>
+        <div id="mealHistoryList">
+            <!-- Meal history will be populated here -->
+        </div>
+    <div class="meal-identification" id = "mealIdentification">
+        <h3>Identify meal with camera; upload an image</h3>
+        <input type="file" id="mealImageInput" accept="image/*">
+        <button id="identifyMealBtn" class="button">Identify Meal</button>
+        <div id="mealIdentificationResult">
+        </div>
+    </div>
     
 </body>
 </html>

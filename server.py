@@ -2,11 +2,15 @@ from flask import Flask, render_template, jsonify
 from flask_sqlalchemy import SQLAlchemy 
 import uuid
 from flask import request
+from PIL import Image
+import numpy as np
 import os
 import json
 from werkzeug.security import generate_password_hash
 import requests
 from datetime import datetime 
+import pandas as pd
+import matplotlib.pyplot as plt
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
@@ -55,6 +59,16 @@ class User(db.Model):
     goal = db.Column(db.String(50))
     allergies = db.Column(db.String(200))
     food_preferences = db.Column(db.String(200))
+    
+
+class Meal(db.Model):
+    User.id()
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    date = db.Column(db.Date, default=datetime.utcnow)
+    calories = db.Column(db.Integer)
+
+
 
 class Activity(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -91,6 +105,7 @@ def dashboard():
         allergies=request.form.get('allergies', ''),
         food_preferences=request.form.get('foodPreferences', '')
     )
+    data = request.json
     db.session.add(user)
     db.session.commit()
     print(user.__dict__)
@@ -125,11 +140,12 @@ def save_activity():
 
 @app.route('/api/activity', methods=['GET'])
 def get_activity():
+    ## checking if user is valid 
     user_id = request.args.get('user_id')
     if not user_id or not db.session.get(User, user_id):
         return jsonify({'error': 'Invalid user'}), 400
     query = Activity.query.filter_by(user_id=user_id)
-    # Optional filters
+    ### identifying variables for filtering 
     from_date = request.args.get('from')
     to_date = request.args.get('to')
     activity_type = request.args.get('type')
@@ -171,6 +187,13 @@ def extract_nutrition(food):
             macros[k] = 0
     return macros
 
+@app.route('/record_calories', methods=['POST'])
+def add_calories():
+    data = request.json
+    entry = Meal(user_id=user.id, date=datetime.strptime(data['date'], "%Y-%m-%d"), calories=data['calories'])
+    db.session.add(entry)
+    db.session.commit()
+    return jsonify({"message": "Entry added."})
 
 
 @app.route('/recommend')
@@ -214,6 +237,7 @@ def meal_details(meal_id):
 def exercise(): 
     user_id = request.args.get('user_id')
     return render_template('exercise.html')
+
 
 if __name__ == '__main__':
     with app.app_context():

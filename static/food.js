@@ -31,3 +31,5 @@ function displayMeals(meals) {
         }
     });
 }
+
+document.getElementById('mealImageInput').addEventListener('change', handleImageUpload);
