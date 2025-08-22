@@ -13,14 +13,13 @@
     <script src="/static/food.js"></script>
     
     <div class="container">
-        <h1 text-align="center">Daily Dietary and Meal Recommendations</h1>
+        <h1 style="text-align:center;">Daily Dietary and Meal Recommendations</h1>
     </div>
     <div class="meal-recommendations">
         <h2>Meal Recommendations</h2>
         <p>Here you can find personalized meal recommendations based on your dietary preferences and restrictions.</p>
-    <button id="generateMealsBtn" class="button">Generate Meal Options</button>
-    <div class="meal-sections" id ="mealSections">
-        
+        <button id="generateMealsBtn" class="button">Generate Meal Options</button>
+        <div class="meal-sections" id="mealSections"></div>
     </div>
     <div class="meal-input">
         <h2>Input Your Meal</h2>
@@ -34,20 +33,41 @@
             <button type="submit" class="button">Submit Meal</button>
         </form>
     </div>
-    <div class ="meal-history" id="mealHistory">
+    <div class="meal-history" id="mealHistory">
         <h3>Meal History</h3>
         <p>View your past meals and dietary choices.</p>
         <button id="viewMealHistoryBtn" class="button">View Meal History</button>
-        <div id="mealHistoryList">
+        <div class = "macro-summary" id="macroSummary">
+            <h4>Today's Macronutrient Summary</h4>
+            <div>
+                <span id="macroCalories">Calories: 0 / 1800kcal</span>
+                <span id="macroProtein">Protein: 0g / 150g</span>
+                <span id="macroCarbs">Carbs: 0g / 200g</span>
+                <span id ="macroFat">Fat: 0g / 70g</span>
+            </div>
+        <table id="mealHistoryTable">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Description</th>
+                <th>Ingredients</th>
+                <th>Calories</th>
+                <th>Protein (g)</th>
+                <th>Carbs (g)</th>
+                <th>Fat (g)</th>
+            </tr>
+        </thead>
+        
+        <tbody id="mealHistoryList">
             <!-- Meal history will be populated here -->
-        </div>
-    <div class="meal-identification" id = "mealIdentification">
+        </tbody>
+        </table>
+    </div>
+    <div class="meal-identification" id="mealIdentification">
         <h3>Identify meal with camera; upload an image</h3>
         <input type="file" id="mealImageInput" accept="image/*">
         <button id="identifyMealBtn" class="button">Identify Meal</button>
-        <div id="mealIdentificationResult">
-        </div>
+        <div id="mealIdentificationResult"></div>
     </div>
-    
 </body>
 </html>

@@ -62,11 +62,15 @@ class User(db.Model):
     
 
 class Meal(db.Model):
-    User.id()
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    user_id = db.Column(db.String(36), db.ForeignKey('user.id'))
     date = db.Column(db.Date, default=datetime.utcnow)
     calories = db.Column(db.Integer)
+    protein = db.Column(db.Float)
+    carbs = db.Column(db.Float)
+    fat = db.Column(db.Float)
+    description = db.Column(db.String(200))
+    ingredients = db.Column(db.String(500))
 
 
 
@@ -87,29 +91,32 @@ def main():
 # def submit():
 #     return redirect('/dashboard')
 
-@app.route('/dashboard', methods=['POST'])
+@app.route('/dashboard', methods=['GET', 'POST'])
 def dashboard():
-
-    user_id=str(uuid.uuid4()) ## generating userID 
-    user = User(
-        id=user_id,
-        fname=request.form['fname'],
-        lname=request.form['lname'],
-        weight=request.form['weight'],
-        height=request.form['height'],
-        password=generate_password_hash(request.form['password']),
-        gender=request.form['gender'],
-        dietary_restrictions=request.form['dietaryRestrictions'],
-        activity_level=request.form['activityLevel'],
-        goal=request.form['goal'],
-        allergies=request.form.get('allergies', ''),
-        food_preferences=request.form.get('foodPreferences', '')
-    )
-    data = request.json
-    db.session.add(user)
-    db.session.commit()
-    print(user.__dict__)
-    return render_template('dashboard.html', user=user)
+    if request.method == 'POST':
+        user_id = str(uuid.uuid4())
+        user = User(
+            id=user_id,
+            fname=request.form['fname'],
+            lname=request.form['lname'],
+            weight=request.form['weight'],
+            height=request.form['height'],
+            password=generate_password_hash(request.form['password']),
+            gender=request.form['gender'],
+            dietary_restrictions=request.form['dietaryRestrictions'],
+            activity_level=request.form['activityLevel'],
+            goal=request.form['goal'],
+            allergies=request.form.get('allergies', ''),
+            food_preferences=request.form.get('foodPreferences', '')
+        )
+        db.session.add(user)
+        db.session.commit()
+        return render_template('dashboard.html', user=user)
+    else:
+        # For GET requests, you need to get the user_id from query params or session
+        user_id = request.args.get('user_id')
+        user = db.session.get(User, user_id) if user_id else None
+        return render_template('dashboard.html', user=user)
 
 
 with open('meals.json', 'r') as f:
@@ -190,10 +197,36 @@ def extract_nutrition(food):
 @app.route('/record_calories', methods=['POST'])
 def add_calories():
     data = request.json
-    entry = Meal(user_id=user.id, date=datetime.strptime(data['date'], "%Y-%m-%d"), calories=data['calories'])
-    db.session.add(entry)
-    db.session.commit()
-    return jsonify({"message": "Entry added."})
+    user_id = data.get('user_id')
+    user = db.session.get(User, user_id)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+    try:
+        # Handle missing or invalid date
+        date_str = data.get('date', datetime.utcnow().strftime("%Y-%m-%d"))
+        try:
+            date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()  # <-- use .date()
+        except Exception:
+            date_obj = datetime.utcnow().date()  # <-- use .date()
+        # Handle ingredients as string or list
+        ingredients = data.get('ingredients', '')
+        if isinstance(ingredients, list):
+            ingredients = ', '.join(ingredients)
+        entry = Meal(
+            user_id=user_id,
+            date=date_obj,
+            calories=data.get('calories', 0),
+            protein=data.get('protein', 0),
+            carbs=data.get('carbs', 0),
+            fat=data.get('fat', 0),
+            description=data.get('description', ''),
+            ingredients=ingredients
+        )
+        db.session.add(entry)
+        db.session.commit()
+        return jsonify({"message": "Entry added."})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route('/recommend')

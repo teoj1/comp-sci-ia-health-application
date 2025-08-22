@@ -149,6 +149,52 @@ h2 {
     margin-bottom: 0;
 }
 
+/* Minimalistic table styles */
+.minimal-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 18px 0 0 0;
+    background: #fff;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 2px 12px rgba(44, 62, 80, 0.07);
+    font-size: 1rem;
+}
+
+.minimal-table th, .minimal-table td {
+    padding: 12px 10px;
+    text-align: left;
+}
+
+.minimal-table thead {
+    background: #f4f8fb;
+}
+
+.minimal-table th {
+    color: #2d5cff;
+    font-weight: 600;
+    border-bottom: 1px solid #e3e8ee;
+    letter-spacing: 0.5px;
+}
+
+.minimal-table tr {
+    border-bottom: 1px solid #f0f0f0;
+    transition: background 0.2s;
+}
+
+.minimal-table tbody tr:hover {
+    background: #e3f0ff;
+}
+
+.minimal-table td {
+    color: #444;
+    border-bottom: 1px solid #f4f8fb;
+}
+
+.minimal-table tr:last-child td {
+    border-bottom: none;
+}
+
 @media (max-width: 700px) {
     .container, .meal-recommendations {
         padding: 12px 2vw;
@@ -161,5 +207,9 @@ h2 {
     }
     .meal-card {
         padding: 14px 8px 12px 8px;
+    }
+    .minimal-table th, .minimal-table td {
+        padding: 8px 4px;
+        font-size: 0.95rem;
     }
 }
