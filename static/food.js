@@ -21,7 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
 function loadMeals() {
     fetch('/recommend?user_id=' + window.currentUserId)
         .then(response => response.json())
-        .then(data => displayMeals(data));
+        .then(data => fetchIngredientsForMeals(data));
 }
 
 
@@ -29,13 +29,13 @@ function displayMeals(meals) {
     const mealSections = document.getElementById('mealSections');
     mealSections.innerHTML = '';
     ['breakfast', 'lunch', 'dinner', 'snacks'].forEach(type => {
-        if (meals[type] && Array.isArray(meals[type]) && meals[type].length > 0) {
+        if (Array.isArray(meals[type]) && meals[type].length > 0) {
             const section = document.createElement('div');
             section.innerHTML = `<h2>${type.charAt(0).toUpperCase() + type.slice(1)}</h2>`;
             section.innerHTML += meals[type].map((meal, idx) => `
                 <div class="meal-card" data-type="${type}" data-idx="${idx}">
                     <h3>${meal.description}</h3>
-                    <p>Ingredients: ${Array.isArray(meal.ingredients) ? meal.ingredients.join(', ') : meal.ingredients}</p>
+                    <p>Ingredients: ${meal.ingredients ? meal.ingredients : 'Unknown'}</p>
                     <p>Calories: ${meal.nutrition.calories} kcal</p>
                     <p>Protein: ${meal.nutrition.protein}g</p>
                     <p>Macronutrients: ${meal.nutrition.protein}g protein, ${meal.nutrition.carbs}g carbohydrates, ${meal.nutrition.fat}g fat</p>
@@ -155,4 +155,48 @@ function updateMacroSummary() {
     document.getElementById('macroProtein').textContent = `Protein: ${macroTotals.protein} / ${DAILY_MACROS.protein}g`;
     document.getElementById('macroCarbs').textContent = `Carbs: ${macroTotals.carbs} / ${DAILY_MACROS.carbs}g`;
     document.getElementById('macroFat').textContent = `Fat: ${macroTotals.fat} / ${DAILY_MACROS.fat}g`;
+}
+
+async function fetchIngredientsForMeals(meals) {
+    const GOOGLE_API_KEY = 'AIzaSyCOGmhXar6SGEizGd2vpxznQ7ESSoIPZNA'; // <-- your real key
+    const GOOGLE_CSE_ID = '80aa6e2c5b0e44514'; // <-- your real CSE ID
+
+    async function getIngredients(mealName) {
+        const query = encodeURIComponent(mealName + ' recipe ingredients');
+        const url = `https://www.googleapis.com/customsearch/v1?key=${GOOGLE_API_KEY}&cx=${GOOGLE_CSE_ID}&q=${query}&num=1`;
+        const resp = await fetch(url);
+        const data = await resp.json();
+        if (data.items && data.items.length > 0) {
+            const item = data.items[0];
+            // Try to extract ingredients from structured data
+            if (item.pagemap && item.pagemap.recipe && item.pagemap.recipe.length > 0) {
+                const recipe = item.pagemap.recipe[0];
+                if (recipe.recipeingredient) {
+                    return Array.isArray(recipe.recipeingredient)
+                        ? recipe.recipeingredient.join(', ')
+                        : recipe.recipeingredient;
+                }
+            }
+            // Fallback to snippet
+            const snippet = item.snippet;
+            if (snippet.includes('Ingredients:')) {
+                let ing = snippet.split('Ingredients:')[1];
+                ing = ing.split(/\.|Directions|Method/)[0];
+                return ing.trim();
+            }
+            return snippet.trim();
+        }
+        return 'Ingredients not found';
+    }
+
+    // For each meal, fetch ingredients and update the meal object
+    const mealTypes = ['breakfast', 'lunch', 'dinner', 'snacks'];
+    for (const type of mealTypes) {
+        if (Array.isArray(meals[type])) {
+            for (const meal of meals[type]) {
+                meal.ingredients = await getIngredients(meal.description);
+            }
+        }
+    }
+    displayMeals(meals); // Now display with ingredients
 }

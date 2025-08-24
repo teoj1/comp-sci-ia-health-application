@@ -15,6 +15,8 @@ import matplotlib.pyplot as plt
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
 USDA_API_KEY = "BQazS4IWGw7VKfBNHFbEJfLPab1wz1ROSZf1xS6K"
+GOOGLE_API_KEY = "AIzaSyCOGmhXar6SGEizGd2vpxznQ7ESSoIPZNA"
+GOOGLE_CSE_ID = "80aa6e2c5b0e44514"
 db = SQLAlchemy(app)
 
 def fetch_usda_meals(category_keywords, user_allergies, wanted_count=3):
@@ -246,14 +248,22 @@ def recommend():
     recommendations = {}
     for category, keywords in meal_keywords.items():
         meals = fetch_usda_meals(keywords, allergies, wanted_count=3)
-        recommendations[category]= [
-            {
+        recs = []
+        for food in meals:
+            ingredients = food.get("ingredients", "Unknown")
+            if ingredients == "Unknown":
+                # Use Google search to get ingredients
+                ingredients = search_ingredients_google(food["description"])
+            # Allergy check (simple, case-insensitive substring match)
+            if any(a.lower() in ingredients.lower() for a in allergies):
+                continue  # Skip meal if allergy found
+            recs.append({
                 "id": food["fdcId"],
                 "description": food["description"],
-                "ingredients": food.get("ingredients", "Unknown"),
+                "ingredients": ingredients,
                 "nutrition": extract_nutrition(food)
-            } for food in meals
-        ]
+            })
+        recommendations[category] = recs
     return jsonify(recommendations)
 
 
@@ -271,6 +281,37 @@ def exercise():
     user_id = request.args.get('user_id')
     return render_template('exercise.html')
 
+
+def search_ingredients_google(meal_name):
+    search_query = f"{meal_name} ingredients"
+    url = "https://www.googleapis.com/customsearch/v1"
+    params = {
+        "key": GOOGLE_API_KEY,
+        "cx": GOOGLE_CSE_ID,
+        "q": search_query,
+        "num": 1
+    }
+    resp = requests.get(url, params=params)
+    print("Google API response:", resp.text)
+    if resp.status_code == 200:
+        items = resp.json().get("items", [])
+        if items:
+            snippet = items[0].get("snippet", "")
+            if "Ingredients:" in snippet:
+                ing_text = snippet.split("Ingredients:")[1]
+                for stop_word in [".", "Directions", "Method"]:
+                    if stop_word in ing_text:
+                        ing_text = ing_text.split(stop_word)[0]
+                return ing_text.strip()
+            else:
+                # Try to extract ingredients by splitting on commas
+                parts = [p.strip() for p in snippet.split(",") if len(p.strip().split()) < 5]
+                if len(parts) > 2:
+                    return ", ".join(parts)
+                return snippet.strip()
+    return "Ingredients not found"
+# To run this server, use the command:
+# python -m flask --app server run
 
 if __name__ == '__main__':
     with app.app_context():
