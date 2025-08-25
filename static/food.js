@@ -21,7 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
 function loadMeals() {
     fetch('/recommend?user_id=' + window.currentUserId)
         .then(response => response.json())
-        .then(data => fetchIngredientsForMeals(data));
+        .then(data => displayMeals(data));
 }
 
 

@@ -253,7 +253,7 @@ def recommend():
             ingredients = food.get("ingredients", "Unknown")
             if ingredients == "Unknown":
                 # Use Google search to get ingredients
-                ingredients = search_ingredients_google(food["description"])
+                ingredients = search_ingredients_spoonacular(food["description"])
             # Allergy check (simple, case-insensitive substring match)
             if any(a.lower() in ingredients.lower() for a in allergies):
                 continue  # Skip meal if allergy found
@@ -276,11 +276,16 @@ def meal_details(meal_id):
     return jsonify({"error": "Meal not found"}), 404
 
 
-@app.route('/exercise')
+@app.route('/activitylog')
 def exercise(): 
     user_id = request.args.get('user_id')
     return render_template('exercise.html')
 
+@app.route('/exerciserecommendation')
+def exercise_recommendation():
+    user_id = request.args.get('user_id')
+    user = db.session.get(User, user_id)
+    return render_template('exerciserecommendation.html', user_goal = user.goal, user_level = user.activity_level)
 
 def search_ingredients_google(meal_name):
     search_query = f"{meal_name} ingredients"
@@ -309,6 +314,33 @@ def search_ingredients_google(meal_name):
                 if len(parts) > 2:
                     return ", ".join(parts)
                 return snippet.strip()
+    return "Ingredients not found"
+
+def search_ingredients_spoonacular(meal_name):
+    SPOONACULAR_API_KEY = "9c2f3b3991c64a47bcd00d3ae163cd84"
+    # Step 1: Search for the recipe
+    search_url = "https://api.spoonacular.com/recipes/complexSearch"
+    search_params = {
+        "query": meal_name,
+        "number": 1,
+        "apiKey": SPOONACULAR_API_KEY
+    }
+    search_resp = requests.get(search_url, params=search_params)
+    if search_resp.status_code == 200:
+        results = search_resp.json().get("results", [])
+        if results:
+            recipe_id = results[0]["id"]
+            # Step 2: Get recipe information
+            info_url = f"https://api.spoonacular.com/recipes/{recipe_id}/information"
+            info_params = {"apiKey": SPOONACULAR_API_KEY}
+            info_resp = requests.get(info_url, params=info_params)
+            if info_resp.status_code == 200:
+                data = info_resp.json()
+                # Get full ingredient list
+                ingredients = [ing["original"] for ing in data.get("extendedIngredients", [])]
+                # Remove trailing ellipsis if present
+                ingredients = [i.rstrip('...').strip() for i in ingredients]
+                return ", ".join(ingredients) if ingredients else "Ingredients not found"
     return "Ingredients not found"
 # To run this server, use the command:
 # python -m flask --app server run

@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Exercise Recommendation</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style a href="/static/exerciserecommendation.css"></style>
+    <script src="exerciserecommendation.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Exercise Recommendation</h1>
+        <form method="post">
+            <label for="goal">Fitness Goal</label>
+            <select id="goal" name="goal" required>
+                <option value="">Select your goal</option>
+                <option value="weight_loss" {{ 'selected' if user_goal == 'weight_loss' else '' }}>Weight Loss</option>
+                <option value="muscle_gain" {{ 'selected' if user_goal == 'muscle_gain' else '' }}>Muscle Gain</option>
+                <option value="endurance" {{ 'selected' if user_goal == 'endurance' else '' }}>Endurance</option>
+                <option value="flexibility" {{ 'selected' if user_goal == 'flexibility' else '' }}>Flexibility</option>
+            </select>
+
+            <label for="level">Current Fitness Level</label>
+            <select id="level" name="level" required>
+                <option value="">Select your level</option>
+                <option value="sedentary" {{ 'selected' if user_level == 'sedentary' else '' }}>Sedentary</option>
+                <option value="lightly active" {{ 'selected' if user_level == 'lightly active' else '' }}>Lightly Active</option>
+                <option value="moderately active" {{ 'selected' if user_level == 'moderately active' else '' }}>Moderately Active</option>
+                <option value="very active" {{ 'selected' if user_level == 'very active' else '' }}>Very Active</option>
+                <option value="super active" {{ 'selected' if user_level == 'super active' else '' }}>Super Active</option>
+            </select>
+
+            <button type="submit">Get Recommendations</button>
+        </form>
+
+        <div class="exercise-recommendations">
+            <div class="exerciserecommendations">
+            <h2>Exercise Recommendations</h2>
+            <p>Here you can find personalized exercise recommendations based on your activity level and fitness goals.</p>
+            <button id="generateExerciseBtns" class="button">Generate Meal Options</button>
+            <div class="exercise-sections" id="exerciseSections">
+
+            </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

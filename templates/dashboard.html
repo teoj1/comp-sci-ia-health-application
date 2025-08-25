@@ -8,9 +8,10 @@
 
 </head>
 <body>
-    <script src="dashboard.js"></script>
+    <script src="{{ url_for('static', filename='dashboard.js') }}"></script>
     <a href="{{ url_for('food', user_id=user.id) }}" class="button">Go to the food section of the application</a>
-    <a href="{{ url_for('exercise', user_id=user.id) }}" class="exercise">Exercise and Fitness Statistics in Here</a>
+    <a href="{{ url_for('exercise', user_id=user.id) }}" class="button">Exercise and Fitness Statistics in Here</a>
+    <a href="{{url_for('exercise_recommendation', user_id=user.id) }}" class="button">Get Exercise Recommendations</a>
     
 </body>
 </html>
