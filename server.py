@@ -11,7 +11,9 @@ import requests
 from datetime import datetime 
 import pandas as pd
 import matplotlib.pyplot as plt
+import http.client
 
+conn = http.client.HTTPSConnection("exercisedb-api1.p.rapidapi.com")
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
 USDA_API_KEY = "BQazS4IWGw7VKfBNHFbEJfLPab1wz1ROSZf1xS6K"
@@ -342,6 +344,58 @@ def search_ingredients_spoonacular(meal_name):
                 ingredients = [i.rstrip('...').strip() for i in ingredients]
                 return ", ".join(ingredients) if ingredients else "Ingredients not found"
     return "Ingredients not found"
+
+@app.route('/api/exercise_recommendation', methods=['POST'])
+def api_exercise_recommendation():
+    data = request.json
+    user_id = data.get('user_id')
+    goal = data.get('goal')
+    level = data.get('level')
+    gender = data.get('gender')
+    selected_muscles = data.get('muscles', [])  # Only for muscle gain
+    age = data.get('age', 25)  # Optional: add age if available
+    weight = data.get('weight', 70)  # Optional: add weight if available
+
+    # Example: get user's exercise history for cooldown logic
+    user_history = {}  # Replace with DB lookup
+
+    # Build API query parameters
+    params = {
+        "limit": 20,
+        "goal": goal,
+        "activityLevel": level,
+        "gender": gender,
+        "age": age,
+        "weight": weight,
+        "bodyParts": ",".join(selected_muscles) if goal == "muscle_gain" else "",
+        "exerciseType": "strength" if goal == "muscle_gain" else "cardio",
+        "equipment": "",  # Optionally filter by equipment
+        "intensity": "",  # Optionally filter by intensity
+        # Add more params as needed for your API
+    }
+    headers = {
+        "X-RapidAPI-Key": "59a253f828msh019e8f4b915bb68p16511fjsn8bb17ce03e4e",
+        "X-RapidAPI-Host": "exercisedb-api1.p.rapidapi.com"
+    }
+    # Call the exercise API (replace with your actual endpoint) Source code: https://rapidapi.com/ascendapi/api/exercisedb-api1/playground/apiendpoint_0b84e1f7-179a-4848-9be4-680e344feb9a
+    conn.request("GET", "/api/v1/exercises/exr_41n2hxnFMotsXTj3", headers=headers)
+    res = conn.getresponse()
+    data = res.read()
+    exercises = data.json().get("data", [])
+
+    # Filter out exercises done in the last 7 days
+    import time
+    now = time.time()
+    cooldown = 7 * 24 * 3600  # 1 week in seconds
+    filtered = [
+        ex for ex in exercises
+        if ex["exerciseId"] not in user_history or now - user_history[ex["exerciseId"]] > cooldown
+    ]
+
+    # Pick top 3 (or however many you want)
+    recommendations = filtered[:3]
+
+    return jsonify({"recommendations": recommendations})
 # To run this server, use the command:
 # python -m flask --app server run
 

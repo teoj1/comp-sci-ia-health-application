@@ -30,19 +30,29 @@
                 <option value="super active" {{ 'selected' if user_level == 'super active' else '' }}>Super Active</option>
             </select>
 
-            <button type="submit">Get Recommendations</button>
+            <button id = "generateExercisebtn" class="button">Get Recommendations</button>
         </form>
 
         <div class="exercise-recommendations">
             <div class="exerciserecommendations">
             <h2>Exercise Recommendations</h2>
             <p>Here you can find personalized exercise recommendations based on your activity level and fitness goals.</p>
-            <button id="generateExerciseBtns" class="button">Generate Meal Options</button>
+            <button id="generateExerciseBtns" class="button">Generate Exercise Options</button>
             <div class="exercise-sections" id="exerciseSections">
 
             </div>
             </div>
         </div>
+
+        <!-- Add after your muscle group selection form -->
+        <div id="muscleSelection" style="display:none;">
+            <label>Select muscle groups:</label>
+            <div id="muscleGroups">
+                <!-- Dynamically generated checkboxes for muscle groups -->
+            </div>
+            <button id="getExercisesBtn" type="button">Get Exercises</button>
+        </div>
+        <div id="exerciseResults"></div>
     </div>
 </body>
 </html>
