@@ -378,10 +378,12 @@ def api_exercise_recommendation():
         "X-RapidAPI-Host": "exercisedb-api1.p.rapidapi.com"
     }
     # Call the exercise API (replace with your actual endpoint) Source code: https://rapidapi.com/ascendapi/api/exercisedb-api1/playground/apiendpoint_0b84e1f7-179a-4848-9be4-680e344feb9a
-    conn.request("GET", "/api/v1/exercises/exr_41n2hxnFMotsXTj3", headers=headers)
+    conn.request("GET", "/api/v1/exercises?name=Bench%20Press&keywords=chest%20workout%2Cbarbell&limit=10", headers=headers)
     res = conn.getresponse()
-    data = res.read()
-    exercises = data.json().get("data", [])
+    data_bytes = res.read()
+    data_str = data_bytes.decode("utf-8")
+    data_json= json.loads(data_str)
+    exercises = data_json.get("data", [])
 
     # Filter out exercises done in the last 7 days
     import time

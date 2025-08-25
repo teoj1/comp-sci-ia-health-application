@@ -6,18 +6,6 @@ const MUSCLE_GROUPS = [
 let lastRecommendations = [];
 
 document.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('generateExercisebtn').addEventListener('click', loadExercises);
-    loadExercises(); // Load initial exercises on page load
-    
-});
-
-function loadExercises() {
-    fetch('/recommend_exercise?user_id=' + window.currentUserId)
-        .then(response => response.json())
-        .then(data => displayExercises(data));
-}
-
-document.addEventListener('DOMContentLoaded', () => {
     // Show muscle selection if goal is muscle gain
     document.getElementById('goal').addEventListener('change', function() {
         if (this.value === 'muscle_gain') {

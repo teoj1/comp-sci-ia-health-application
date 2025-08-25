@@ -5,12 +5,12 @@
     <title>Exercise Recommendation</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style a href="/static/exerciserecommendation.css"></style>
-    <script src="exerciserecommendation.js"></script>
+    <script src= "/static/exerciserecommendation.js"></script>
 </head>
 <body>
     <div class="container">
         <h1>Exercise Recommendation</h1>
-        <form method="post">
+        <form method="get">
             <label for="goal">Fitness Goal</label>
             <select id="goal" name="goal" required>
                 <option value="">Select your goal</option>
@@ -30,14 +30,11 @@
                 <option value="super active" {{ 'selected' if user_level == 'super active' else '' }}>Super Active</option>
             </select>
 
-            <button id = "generateExercisebtn" class="button">Get Recommendations</button>
+            <button id="generateExerciseBtns" type="button">Generate Exercise Options</button>
         </form>
 
         <div class="exercise-recommendations">
             <div class="exerciserecommendations">
-            <h2>Exercise Recommendations</h2>
-            <p>Here you can find personalized exercise recommendations based on your activity level and fitness goals.</p>
-            <button id="generateExerciseBtns" class="button">Generate Exercise Options</button>
             <div class="exercise-sections" id="exerciseSections">
 
             </div>
