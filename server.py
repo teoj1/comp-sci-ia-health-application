@@ -345,6 +345,27 @@ def search_ingredients_spoonacular(meal_name):
                 return ", ".join(ingredients) if ingredients else "Ingredients not found"
     return "Ingredients not found"
 
+def get_exercises_from_api(params, headers):
+    base_url = "https://exercisedb-api1.p.rapidapi.com/api/v1/exercises"
+    # Build query string from params
+    query_params = []
+    for k, v in params.items():
+        if v:
+            query_params.append(f"{k}={v}")
+    url = base_url + "?" + "&".join(query_params)
+    print("Requesting:", url)
+    resp = requests.get(url, headers=headers)
+    print("Exercise API response:", resp.text)
+    if resp.status_code == 200:
+        data_json = resp.json()
+        # The structure may be a list or dict; adjust as needed
+        if isinstance(data_json, dict):
+            exercises = data_json.get("data", [])
+        else:
+            exercises = data_json
+        return exercises
+    return []
+
 @app.route('/api/exercise_recommendation', methods=['POST'])
 def api_exercise_recommendation():
     data = request.json
@@ -352,14 +373,27 @@ def api_exercise_recommendation():
     goal = data.get('goal')
     level = data.get('level')
     gender = data.get('gender')
-    selected_muscles = data.get('muscles', [])  # Only for muscle gain
-    age = data.get('age', 25)  # Optional: add age if available
-    weight = data.get('weight', 70)  # Optional: add weight if available
+    selected_muscles = data.get('muscles', [])
+    age = data.get('age', 25)
+    weight = data.get('weight', 70)
 
-    # Example: get user's exercise history for cooldown logic
-    user_history = {}  # Replace with DB lookup
+    # Set exerciseType and bodyParts based on goal
+    if goal == "muscle_gain":
+        exercise_type = "strength"
+        body_parts = ",".join(selected_muscles)
+    elif goal == "weight_loss":
+        exercise_type = "cardio"
+        body_parts = ""  # Cardio can be full body
+    elif goal == "endurance":
+        exercise_type = "cardio"
+        body_parts = ""  # Endurance is usually full body or legs
+    elif goal == "flexibility":
+        exercise_type = "stretching"
+        body_parts = ""  # Flexibility is usually full body or specific muscles
+    else:
+        exercise_type = ""
+        body_parts = ""
 
-    # Build API query parameters
     params = {
         "limit": 20,
         "goal": goal,
@@ -367,36 +401,24 @@ def api_exercise_recommendation():
         "gender": gender,
         "age": age,
         "weight": weight,
-        "bodyParts": ",".join(selected_muscles) if goal == "muscle_gain" else "",
-        "exerciseType": "strength" if goal == "muscle_gain" else "cardio",
-        "equipment": "",  # Optionally filter by equipment
-        "intensity": "",  # Optionally filter by intensity
-        # Add more params as needed for your API
+        "bodyParts": body_parts,
+        "exerciseType": exercise_type,
     }
     headers = {
         "X-RapidAPI-Key": "59a253f828msh019e8f4b915bb68p16511fjsn8bb17ce03e4e",
         "X-RapidAPI-Host": "exercisedb-api1.p.rapidapi.com"
     }
-    # Call the exercise API (replace with your actual endpoint) Source code: https://rapidapi.com/ascendapi/api/exercisedb-api1/playground/apiendpoint_0b84e1f7-179a-4848-9be4-680e344feb9a
-    conn.request("GET", "/api/v1/exercises?name=Bench%20Press&keywords=chest%20workout%2Cbarbell&limit=10", headers=headers)
-    res = conn.getresponse()
-    data_bytes = res.read()
-    data_str = data_bytes.decode("utf-8")
-    data_json= json.loads(data_str)
-    exercises = data_json.get("data", [])
+    exercises = get_exercises_from_api(params, headers)
 
-    # Filter out exercises done in the last 7 days
-    import time
-    now = time.time()
-    cooldown = 7 * 24 * 3600  # 1 week in seconds
-    filtered = [
-        ex for ex in exercises
-        if ex["exerciseId"] not in user_history or now - user_history[ex["exerciseId"]] > cooldown
-    ]
+    # Optionally filter further based on goal
+    if goal == "flexibility":
+        exercises = [ex for ex in exercises if ex.get("exerciseType") == "stretching"]
+    elif goal == "endurance":
+        exercises = [ex for ex in exercises if ex.get("exerciseType") == "cardio"]
+    elif goal == "weight_loss":
+        exercises = [ex for ex in exercises if ex.get("exerciseType") == "cardio"]
 
-    # Pick top 3 (or however many you want)
-    recommendations = filtered[:3]
-
+    recommendations = exercises[:3] if exercises else []
     return jsonify({"recommendations": recommendations})
 # To run this server, use the command:
 # python -m flask --app server run

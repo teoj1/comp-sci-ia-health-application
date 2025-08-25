@@ -65,18 +65,32 @@ function displayExercises(exercises) {
         div.innerHTML = '<p>No suitable exercises found. Try selecting different muscles or lowering intensity.</p>';
         return;
     }
-    div.innerHTML = exercises.map(ex => `
-        <div class="exercise-card">
+    div.innerHTML = exercises.map(ex => {
+        let details = `
             <h3>${ex.name}</h3>
             <img src="${ex.imageUrl || ''}" alt="${ex.name}" style="max-width:120px;">
             <p><b>Type:</b> ${ex.exerciseType}</p>
-            <p><b>Body Parts:</b> ${ex.bodyParts.join(', ')}</p>
-            <p><b>Target Muscles:</b> ${ex.targetMuscles.join(', ')}</p>
-            <p><b>Secondary Muscles:</b> ${ex.secondaryMuscles.join(', ')}</p>
-            <p><b>Equipment:</b> ${ex.equipments.join(', ')}</p>
-            <button onclick="confirmExercise('${ex.exerciseId}')">I've done this exercise</button>
-        </div>
-    `).join('') + `<button onclick="regenerateExercises()">Regenerate</button>`;
+        `;
+        if (ex.exerciseType === "strength") {
+            details += `
+                <p><b>Body Parts:</b> ${ex.bodyParts.join(', ')}</p>
+                <p><b>Target Muscles:</b> ${ex.targetMuscles.join(', ')}</p>
+                <p><b>Equipment:</b> ${ex.equipments.join(', ')}</p>
+            `;
+        } else if (ex.exerciseType === "cardio") {
+            details += `
+                <p><b>Estimated Calories Burned:</b> ${ex.caloriesBurned || 'N/A'}</p>
+                <p><b>Duration:</b> ${ex.duration || 'N/A'} min</p>
+            `;
+        } else if (ex.exerciseType === "stretching") {
+            details += `
+                <p><b>Flexibility Focus:</b> ${ex.bodyParts.join(', ')}</p>
+                <p><b>Instructions:</b> ${ex.instructions || 'See link for details.'}</p>
+            `;
+        }
+        details += `<button onclick="confirmExercise('${ex.exerciseId}')">I've done this exercise</button>`;
+        return `<div class="exercise-card">${details}</div>`;
+    }).join('') + `<button onclick="regenerateExercises()">Regenerate</button>`;
 }
 
 function confirmExercise(exerciseId) {
