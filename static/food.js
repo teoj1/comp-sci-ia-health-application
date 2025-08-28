@@ -31,14 +31,22 @@ function displayMeals(meals) {
     ['breakfast', 'lunch', 'dinner', 'snacks'].forEach(type => {
         if (Array.isArray(meals[type]) && meals[type].length > 0) {
             const section = document.createElement('div');
-            section.innerHTML = `<h2>${type.charAt(0).toUpperCase() + type.slice(1)}</h2>`;
+            // Show macro targets for each meal type
+            const macroTarget = meals[type][0].macro_target;
+            section.innerHTML = `<h2>${type.charAt(0).toUpperCase() + type.slice(1)}</h2>
+                <p><b>Target for this meal:</b> 
+                ${macroTarget.calories} kcal, 
+                ${macroTarget.protein}g protein, 
+                ${macroTarget.carbs}g carbs, 
+                ${macroTarget.fat}g fat</p>`;
             section.innerHTML += meals[type].map((meal, idx) => `
                 <div class="meal-card" data-type="${type}" data-idx="${idx}">
                     <h3>${meal.description}</h3>
-                    <p>Ingredients: ${meal.ingredients ? meal.ingredients : 'Unknown'}</p>
+                    <p><strong>Ingredients:</strong> ${meal.ingredients && meal.ingredients !== "Unknown" ? meal.ingredients : 'Ingredients not found'}</p>
                     <p>Calories: ${meal.nutrition.calories} kcal</p>
                     <p>Protein: ${meal.nutrition.protein}g</p>
-                    <p>Macronutrients: ${meal.nutrition.protein}g protein, ${meal.nutrition.carbs}g carbohydrates, ${meal.nutrition.fat}g fat</p>
+                    <p>Carbs: ${meal.nutrition.carbs}g</p>
+                    <p>Fat: ${meal.nutrition.fat}g</p>
                     <button class="eat-meal-btn">I've eaten this meal</button>
                 </div>
             `).join('');

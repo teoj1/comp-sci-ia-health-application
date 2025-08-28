@@ -6,16 +6,23 @@ const MUSCLE_GROUPS = [
 let lastRecommendations = [];
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Show muscle selection if goal is muscle gain
     document.getElementById('goal').addEventListener('change', function() {
-        if (this.value === 'muscle_gain') {
+        if (this.value === 'muscle_gain' || this.value === 'flexibility') {
             showMuscleSelection();
         } else {
             document.getElementById('muscleSelection').style.display = 'none';
         }
     });
 
-    document.getElementById('getExercisesBtn').addEventListener('click', getExercises);
+    document.getElementById('generateExerciseBtn').addEventListener('click', function() {
+        const goal = document.getElementById('goal').value;
+        if (goal === 'muscle_gain' || goal === 'flexibility') {
+            showMuscleSelection();
+        } else {
+            document.getElementById('muscleSelection').style.display = 'none';
+            getExercises();
+        }
+    });
 
     // Generate muscle group checkboxes
     const muscleDiv = document.getElementById('muscleGroups');
@@ -30,7 +37,7 @@ function showMuscleSelection() {
     document.getElementById('muscleSelection').style.display = '';
 }
 
-function getExercises() {
+function getExercises(lowerIntensity = false) {
     const user_id = window.currentUserId;
     const goal = document.getElementById('goal').value;
     const level = document.getElementById('level').value;
@@ -49,7 +56,8 @@ function getExercises() {
             gender,
             muscles, // array
             age,
-            weight
+            weight,
+            lower_intensity: lowerIntensity // <-- send the flag
         })
     })
     .then(res => res.json())
@@ -100,6 +108,5 @@ function confirmExercise(exerciseId) {
 }
 
 function regenerateExercises() {
-    // Optionally send a flag to backend to lower intensity
-    getExercises();
+    getExercises(true); // Pass true to indicate lower intensity
 }

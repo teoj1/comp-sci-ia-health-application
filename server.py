@@ -8,10 +8,13 @@ import os
 import json
 from werkzeug.security import generate_password_hash
 import requests
-from datetime import datetime 
+from datetime import datetime, date 
 import pandas as pd
 import matplotlib.pyplot as plt
 import http.client
+import random
+from functools import lru_cache
+from datetime import timedelta
 
 conn = http.client.HTTPSConnection("exercisedb-api1.p.rapidapi.com")
 app = Flask(__name__)
@@ -239,32 +242,72 @@ def recommend():
     user = db.session.get(User, user_id)
     if not user: 
         return jsonify({"error": "User not found"}), 404
-    allergies = user.allergies.split(',') if user.allergies else []
-    food_preferences = user.food_preferences.split(',') if user.food_preferences else []
+
+    allergies = [a.strip().lower() for a in user.allergies.split(',') if a.strip()] if user.allergies else []
+    food_preferences = [fp.strip().lower() for fp in user.food_preferences.split(',') if fp.strip()] if user.food_preferences else []
+
+    # Macronutrient targets
+    daily_macros = {
+        "calories": 1800,
+        "protein": 75,
+        "carbs": 350,
+        "fat": 50
+    }
+    # Proportions
+    proportions = {
+        "breakfast": 0.25,
+        "lunch": 0.3,
+        "dinner": 0.35,
+        "snacks": random.uniform(0.05, 0.1)
+    }
+
     meal_keywords = {
         'breakfast': ['eggs', 'oatmeal', 'yogurt', 'fruit', 'cereal', 'toast'],
         'lunch': ['salad', 'sandwich', 'chicken', 'rice', 'soup', 'beef'],
         'dinner': ['fish', 'steak', 'pasta', 'vegetables', 'curry'],
         'snacks': ['nuts', 'bar', 'cheese', 'fruit', 'yogurt']
     }
+
+    # Add food preferences to keywords if present
+    for category in meal_keywords:
+        if food_preferences:
+            meal_keywords[category] += food_preferences
+
     recommendations = {}
     for category, keywords in meal_keywords.items():
-        meals = fetch_usda_meals(keywords, allergies, wanted_count=3)
+        # Shuffle keywords for variety
+        random.shuffle(keywords)
+        meals = fetch_usda_meals(keywords, allergies, wanted_count=6)
+        # Shuffle meals for variety
+        random.shuffle(meals)
         recs = []
+        macro_target = {k: round(v * proportions[category]) for k, v in daily_macros.items()}
         for food in meals:
+            # Allergy and preference check
             ingredients = food.get("ingredients", "Unknown")
-            if ingredients == "Unknown":
-                # Use Google search to get ingredients
-                ingredients = search_ingredients_spoonacular(food["description"])
-            # Allergy check (simple, case-insensitive substring match)
-            if any(a.lower() in ingredients.lower() for a in allergies):
-                continue  # Skip meal if allergy found
+            description = food.get("description", "").lower()
+            if any(a in (ingredients.lower() + description) for a in allergies):
+                continue
+            if food_preferences and not any(fp in description or fp in ingredients.lower() for fp in food_preferences):
+                continue
+            # Nutrition
+            nutrition = extract_nutrition(food)
+            # Only include meals within ±30% of macro target for the category
+            within_macros = all(
+                abs(nutrition[k] - macro_target[k]) <= macro_target[k] * 0.3
+                for k in macro_target
+            )
+            if not within_macros:
+                continue
             recs.append({
-                "id": food["fdcId"],
-                "description": food["description"],
+                "id": food.get("fdcId"),
+                "description": food.get("description"),
                 "ingredients": ingredients,
-                "nutrition": extract_nutrition(food)
+                "nutrition": nutrition,
+                "macro_target": macro_target
             })
+            if len(recs) == 3:  # 3 meals per category
+                break
         recommendations[category] = recs
     return jsonify(recommendations)
 
@@ -376,26 +419,24 @@ def api_exercise_recommendation():
     selected_muscles = data.get('muscles', [])
     age = data.get('age', 25)
     weight = data.get('weight', 70)
+    lower_intensity = data.get('lower_intensity', False)
 
     # Set exerciseType and bodyParts based on goal
     if goal == "muscle_gain":
         exercise_type = "strength"
         body_parts = ",".join(selected_muscles)
-    elif goal == "weight_loss":
+    elif goal in ["weight_loss", "endurance"]:
         exercise_type = "cardio"
-        body_parts = ""  # Cardio can be full body
-    elif goal == "endurance":
-        exercise_type = "cardio"
-        body_parts = ""  # Endurance is usually full body or legs
+        body_parts = ""
     elif goal == "flexibility":
         exercise_type = "stretching"
-        body_parts = ""  # Flexibility is usually full body or specific muscles
+        body_parts = ",".join(selected_muscles) if selected_muscles else ""
     else:
         exercise_type = ""
         body_parts = ""
 
     params = {
-        "limit": 20,
+        "limit": 50,
         "goal": goal,
         "activityLevel": level,
         "gender": gender,
@@ -410,16 +451,145 @@ def api_exercise_recommendation():
     }
     exercises = get_exercises_from_api(params, headers)
 
-    # Optionally filter further based on goal
-    if goal == "flexibility":
-        exercises = [ex for ex in exercises if ex.get("exerciseType") == "stretching"]
-    elif goal == "endurance":
-        exercises = [ex for ex in exercises if ex.get("exerciseType") == "cardio"]
-    elif goal == "weight_loss":
-        exercises = [ex for ex in exercises if ex.get("exerciseType") == "cardio"]
+    # --- FIX: Always output cardio/stretching regardless of API structure ---
+    if goal in ["weight_loss", "endurance"]:
+        # Accept any exercise with 'cardio' in type, or fallback to name keywords
+        cardio_exs = [ex for ex in exercises if "cardio" in (str(ex.get("exerciseType", "")) + str(ex.get("type", "")) + str(ex.get("category", ""))).lower()]
+        if not cardio_exs:
+            cardio_keywords = ["run", "walk", "cycle", "jump", "cardio", "aerobic", "row", "swim", "burpee"]
+            cardio_exs = [ex for ex in exercises if any(kw in ex.get("name", "").lower() for kw in cardio_keywords)]
+        # If still empty, fallback to first 5 exercises
+        if not cardio_exs and exercises:
+            cardio_exs = exercises[:5]
+        exercises = cardio_exs
 
-    recommendations = exercises[:3] if exercises else []
+    if goal == "flexibility":
+        # Accept any exercise with 'stretch' or 'stretching' in type/category
+        stretch_exs = [ex for ex in exercises if "stretch" in (str(ex.get("exerciseType", "")) + str(ex.get("type", "")) + str(ex.get("category", ""))).lower()]
+        # If muscle groups selected, filter by bodyParts
+        if selected_muscles:
+            stretch_exs = [ex for ex in stretch_exs if any(muscle.lower() in " ".join(ex.get("bodyParts", [])).lower() for muscle in selected_muscles)]
+        # If still empty, fallback to first 5 exercises
+        if not stretch_exs and exercises:
+            stretch_exs = exercises[:5]
+        exercises = stretch_exs
+
+    # Lower intensity filter
+    if lower_intensity:
+        exercises = [ex for ex in exercises if ex.get("intensity", 1) <= 2]
+
+    recommendations = exercises[:5] if exercises else []
     return jsonify({"recommendations": recommendations})
+
+def get_user_stats(user_id):
+    # Aggregate diet logs
+    meals = Meal.query.filter_by(user_id=user_id).order_by(Meal.date.desc()).all()
+    activities = Activity.query.filter_by(user_id=user_id).order_by(Activity.timestamp.desc()).all()
+    user = db.session.get(User, user_id)
+    today = datetime.utcnow().date()
+    week_ago = today - timedelta(days=6)
+    # Diet stats
+    daily_meals = [m for m in meals if m.date == today]
+    weekly_meals = [m for m in meals if m.date >= week_ago]
+    total_calories = sum(m.calories for m in daily_meals)
+    total_protein = sum(m.protein for m in daily_meals)
+    total_carbs = sum(m.carbs for m in daily_meals)
+    total_fat = sum(m.fat for m in daily_meals)
+    # Exercise stats
+    daily_activities = [a for a in activities if a.timestamp.date() == today]
+    weekly_activities = [a for a in activities if a.timestamp.date() >= week_ago]
+    total_ex_minutes = sum(a.duration for a in daily_activities)
+    total_ex_calories = sum(a.calories for a in daily_activities)
+    # Trends
+    calories_7d = []
+    ex_minutes_7d = []
+    ex_calories_7d = []
+    for i in range(7):
+        d = today - timedelta(days=i)
+        calories_7d.append(sum(m.calories for m in meals if m.date == d))
+        ex_minutes_7d.append(sum(a.duration for a in activities if a.timestamp.date() == d))
+        ex_calories_7d.append(sum(a.calories for a in activities if a.timestamp.date() == d))
+    # Intensity distribution
+    intensity_counts = {'Low': 0, 'Moderate': 0, 'High': 0}
+    for a in weekly_activities:
+        if a.intensity <= 2:
+            intensity_counts['Low'] += 1
+        elif a.intensity == 3:
+            intensity_counts['Moderate'] += 1
+        else:
+            intensity_counts['High'] += 1
+    # Recommended calories (simple example)
+    recommended_calories = 1800 if user.goal == "weight_loss" else 2200
+    return {
+        "today": str(today),
+        "total_calories": total_calories,
+        "recommended_calories": recommended_calories,
+        "macros": {
+            "protein": total_protein,
+            "carbs": total_carbs,
+            "fat": total_fat,
+            "target": {"protein": 75, "carbs": 350, "fat": 50}
+        },
+        "exercise": {
+            "minutes": total_ex_minutes,
+            "calories": total_ex_calories
+        },
+        "calories_7d": calories_7d[::-1],
+        "ex_minutes_7d": ex_minutes_7d[::-1],
+        "ex_calories_7d": ex_calories_7d[::-1],
+        "intensity_dist": intensity_counts
+    }
+
+@lru_cache(maxsize=32)
+def get_cached_stats(user_id):
+    return get_user_stats(user_id)
+
+@app.route('/api/dashboard_stats')
+def dashboard_stats():
+    user_id = request.args.get('user_id')
+    stats = get_cached_stats(user_id)
+    return jsonify(stats)
+
+@app.route('/api/daily_summary')
+def daily_summary():
+    user_id = request.args.get('user_id')
+    user = db.session.get(User, user_id)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    today = date.today()
+    # Aggregate meals
+    meals = Meal.query.filter_by(user_id=user_id, date=today).all()
+    total_macros = {
+        "calories": sum(m.calories for m in meals),
+        "protein": sum(m.protein for m in meals),
+        "carbs": sum(m.carbs for m in meals),
+        "fat": sum(m.fat for m in meals)
+    }
+    # Aggregate activities
+    activities = Activity.query.filter(
+        Activity.user_id == user_id,
+        Activity.timestamp >= datetime.combine(today, datetime.min.time()),
+        Activity.timestamp <= datetime.combine(today, datetime.max.time())
+    ).all()
+    total_exercise = {
+        "minutes": sum(a.duration for a in activities),
+        "calories_burned": sum(a.calories for a in activities),
+        "activities": [
+            {
+                "type": a.activity_type,
+                "duration": a.duration,
+                "intensity": a.intensity,
+                "calories": a.calories,
+                "timestamp": a.timestamp.isoformat()
+            } for a in activities
+        ]
+    }
+    return jsonify({
+        "date": str(today),
+        "macronutrients": total_macros,
+        "exercise": total_exercise
+    })
 # To run this server, use the command:
 # python -m flask --app server run
 

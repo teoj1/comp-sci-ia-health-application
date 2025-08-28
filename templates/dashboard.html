@@ -2,16 +2,53 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <title>Dashboard | Health Application</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Health Application</title>
-    <link rel="stylesheet" href="dashboard.css">
-
+    <link rel="stylesheet" href="/static/dashboard.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="/static/dashboard.js"></script>
 </head>
 <body>
-    <script src="{{ url_for('static', filename='dashboard.js') }}"></script>
-    <a href="{{ url_for('food', user_id=user.id) }}" class="button">Go to the food section of the application</a>
-    <a href="{{ url_for('exercise', user_id=user.id) }}" class="button">Exercise and Fitness Statistics in Here</a>
-    <a href="{{url_for('exercise_recommendation', user_id=user.id) }}" class="button">Get Exercise Recommendations</a>
-    
+    <div class="dashboard-grid">
+        <!-- Cards -->
+        <div class="card" id="diet-summary">
+            <h2>Diet Summary</h2>
+            <div id="dietStats"></div>
+        </div>
+        <div class="card" id="exercise-summary">
+            <h2>Exercise Summary</h2>
+            <div id="exerciseStats"></div>
+        </div>
+        <div class="card" id="macro-progress">
+            <h2>Macronutrient Progress</h2>
+            <canvas id="macroChart"></canvas>
+        </div>
+        <div class="card" id="calorie-trend">
+            <h2>Weekly Calorie Trend</h2>
+            <canvas id="calorieTrendChart"></canvas>
+        </div>
+        <div class="card" id="exercise-trend">
+            <h2>Weekly Exercise Trend</h2>
+            <canvas id="exerciseTrendChart"></canvas>
+        </div>
+        <div class="card" id="intensity-pie">
+            <h2>Intensity Distribution</h2>
+            <canvas id="intensityPieChart"></canvas>
+        </div>
+        <div class="card">
+            <h2>Today's Macronutrients</h2>
+            <div id="dailyMacros"></div>
+        </div>
+        <div class="card">
+            <h2>Today's Exercise Log</h2>
+            <div id="dailyExercise"></div>
+        </div>
+        <!-- Navigation -->
+        <div class="card nav-card">
+            <a href="{{ url_for('food', user_id=user.id) }}" class="button">Go to Food Section</a>
+            <a href="{{ url_for('exercise', user_id=user.id) }}" class="button">Exercise Log</a>
+            <a href="{{ url_for('exercise_recommendation', user_id=user.id) }}" class="button">Exercise Recommendations</a>
+        </div>
+    </div>
 </body>
 </html>
