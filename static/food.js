@@ -12,6 +12,8 @@ let macroTotals = {
     fat: 0
 };
 
+window.currentUserId = "{{ user_id } }"; // Set this from backend/session
+
 document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('generateMealsBtn').addEventListener('click', loadMeals);
     updateMacroSummary(); // Initialize summary on page load
@@ -26,44 +28,48 @@ function loadMeals() {
 
 
 function displayMeals(meals) {
-    const mealSections = document.getElementById('mealSections');
-    mealSections.innerHTML = '';
-    ['breakfast', 'lunch', 'dinner', 'snacks'].forEach(type => {
-        if (Array.isArray(meals[type]) && meals[type].length > 0) {
-            const section = document.createElement('div');
-            // Show macro targets for each meal type
-            const macroTarget = meals[type][0].macro_target;
-            section.innerHTML = `<h2>${type.charAt(0).toUpperCase() + type.slice(1)}</h2>
-                <p><b>Target for this meal:</b> 
-                ${macroTarget.calories} kcal, 
-                ${macroTarget.protein}g protein, 
-                ${macroTarget.carbs}g carbs, 
-                ${macroTarget.fat}g fat</p>`;
-            section.innerHTML += meals[type].map((meal, idx) => `
-                <div class="meal-card" data-type="${type}" data-idx="${idx}">
-                    <h3>${meal.description}</h3>
-                    <p><strong>Ingredients:</strong> ${meal.ingredients && meal.ingredients !== "Unknown" ? meal.ingredients : 'Ingredients not found'}</p>
-                    <p>Calories: ${meal.nutrition.calories} kcal</p>
-                    <p>Protein: ${meal.nutrition.protein}g</p>
-                    <p>Carbs: ${meal.nutrition.carbs}g</p>
-                    <p>Fat: ${meal.nutrition.fat}g</p>
-                    <button class="eat-meal-btn">I've eaten this meal</button>
-                </div>
-            `).join('');
-            mealSections.appendChild(section);
-        }
-    });
+  const mealSections = document.getElementById('mealSections');
+  mealSections.innerHTML = ''; // Clear previous output
 
-    // Add event listeners for "eat" buttons
-    document.querySelectorAll('.eat-meal-btn').forEach((btn, i) => {
-        btn.addEventListener('click', function() {
-            const card = btn.closest('.meal-card');
-            const type = card.getAttribute('data-type');
-            const idx = card.getAttribute('data-idx');
-            const meal = meals[type][idx];
-            confirmMeal(meal);
-        });
+  ['breakfast', 'lunch', 'dinner', 'snacks'].forEach(type => {
+    if (Array.isArray(meals[type]) && meals[type].length > 0) {
+      const macroTarget = meals[type][0].macro_target;
+
+      let html = `<h2>${type.charAt(0).toUpperCase() + type.slice(1)}</h2>
+        <p><b>Target for this meal:</b> 
+        ${macroTarget.calories} kcal, 
+        ${macroTarget.protein}g protein, 
+        ${macroTarget.carbs}g carbs, 
+        ${macroTarget.fat}g fat</p>`;
+
+        html += meals[type].map((meal, idx) => `
+            <div class="meal-card" data-type="${type}" data-idx="${idx}">
+            <h3>${meal.description}</h3>
+            <p><strong>Ingredients:</strong> ${meal.ingredients && meal.ingredients !== "Unknown" ? meal.ingredients : 'Ingredients not found'}</p>
+            <p>Calories: ${meal.nutrition.calories} kcal</p>
+            <p>Protein: ${meal.nutrition.protein}g</p>
+            <p>Carbs: ${meal.nutrition.carbs}g</p>
+            <p>Fat: ${meal.nutrition.fat}g</p>
+            <button class="eat-meal-btn">I've eaten this meal</button>
+            </div>
+        `).join('');
+
+        const section = document.createElement('div');
+        section.innerHTML = html;
+        mealSections.appendChild(section);
+    }
+  });
+
+  // Add event listeners for the buttons after inserting elements
+  document.querySelectorAll('.eat-meal-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const card = btn.closest('.meal-card');
+      const type = card.getAttribute('data-type');
+      const idx = parseInt(card.getAttribute('data-idx'));
+      const meal = meals[type][idx];
+      confirmMeal(meal);
     });
+  });
 }
 
 // Add this function to send meal info to backend and update history

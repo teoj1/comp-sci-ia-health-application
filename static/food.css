@@ -206,8 +206,11 @@ h2 {
         grid-template-columns: 1fr;
     }
     .meal-card {
-        padding: 14px 8px 12px 8px;
-    }
+        border: 1px solid #ccc;
+        padding: 10px;
+        margin: 10px 0;
+        background: #f9f9f9;
+        }
     .minimal-table th, .minimal-table td {
         padding: 8px 4px;
         font-size: 0.95rem;
