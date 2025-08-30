@@ -12,7 +12,6 @@ let macroTotals = {
     fat: 0
 };
 
-window.currentUserId = "{{ user_id } }"; // Set this from backend/session
 
 document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('generateMealsBtn').addEventListener('click', loadMeals);

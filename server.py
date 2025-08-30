@@ -15,6 +15,7 @@ import http.client
 import random
 from functools import lru_cache
 from datetime import timedelta
+import re
 
 conn = http.client.HTTPSConnection("exercisedb-api1.p.rapidapi.com")
 app = Flask(__name__)
@@ -24,21 +25,38 @@ GOOGLE_API_KEY = "AIzaSyCOGmhXar6SGEizGd2vpxznQ7ESSoIPZNA"
 GOOGLE_CSE_ID = "80aa6e2c5b0e44514"
 db = SQLAlchemy(app)
 
+
+portion_map = {
+    'breakfast': 2,
+    'lunch': 3,
+    'dinner': 3,
+    'snack': 0.3
+}
 def fetch_usda_meals(category_keywords, user_allergies, wanted_count=3):
     url = f"https://api.nal.usda.gov/fdc/v1/foods/search?api_key={USDA_API_KEY}"
     payload = {
         "query": ", ".join(category_keywords),
-        "pageSize": 20,  # Lowered for speed
+        "pageSize": 30,  # Fetch more for variety
         "dataType": ["Foundation", "SR Legacy", "Survey (FNDDS)"]
     }
     resp = requests.post(url, json=payload)
     foods = resp.json().get('foods', [])
     safe_foods = []
+    # Expanded exclusion list for processed/unfresh foods
+    exclusion_terms = [
+        "baby", "infant", "toddler", "formula", "gerber",
+        "frozen", "ready-to-heat", "ready to heat", "ready meal", "microwave",
+        "prepared", "tv dinner", "meal kit", "instant", "dehydrated",
+        "canned", "packaged", "convenience", "prepackaged", "pre-packaged"
+    ]
     for food in foods:
+        description = food.get('description', '').lower()
+        # Exclude unwanted foods
+        if any(ex in description for ex in exclusion_terms):
+            continue
         text = (food.get('description', '') + ' ' + food.get('ingredients', '')).lower()
         if any(a.lower() in text for a in user_allergies):
             continue  # Skip foods with allergies
-        # Only fetch details if it passes allergy check
         fdc_id = food.get('fdcId')
         if not fdc_id:
             continue
@@ -49,8 +67,10 @@ def fetch_usda_meals(category_keywords, user_allergies, wanted_count=3):
             food_detail['description'] = food.get('description', '')
             food_detail['ingredients'] = food.get('ingredients', 'Unknown')
             safe_foods.append(food_detail)
-        if len(safe_foods) == wanted_count:
-            break
+    # Randomly select wanted_count meals for variety
+    if len(safe_foods) > wanted_count:
+        import random
+        return random.sample(safe_foods, wanted_count)
     return safe_foods
 
 class User(db.Model):
@@ -181,11 +201,10 @@ def get_activity():
         } for a in activities
     ])
 
-def extract_nutrition(food):
+def extract_nutrition(food, portion_multiplier=1):
     macros = {'protein': None, 'fat': None, 'carbs': None, 'calories': None}
     for nut in food.get("foodNutrients", []):
         num = str(nut.get('nutrientNumber') or nut.get('nutrient', {}).get('number') or '')
-        # Use 'value' if present, else fallback to 'amount'
         amt = nut.get('value', nut.get('amount', 0))
         if num == '203':  # Protein
             macros['protein'] = amt
@@ -195,10 +214,10 @@ def extract_nutrition(food):
             macros['carbs'] = amt
         elif num == '208':  # Energy (kcal)
             macros['calories'] = amt
-    # Fallback to 0 if missing
     for k in macros:
         if macros[k] is None:
             macros[k] = 0
+        macros[k] = round(macros[k] * portion_multiplier)
     return macros
 
 @app.route('/record_calories', methods=['POST'])
@@ -268,37 +287,41 @@ def recommend():
         'snacks': ['nuts', 'bar', 'cheese', 'fruit', 'yogurt']
     }
 
-    # Add food preferences to keywords if present
-    for category in meal_keywords:
-        if food_preferences:
-            meal_keywords[category] += food_preferences
-
     recommendations = {}
+    def get_main_word(description):
+        # Extract the first non-generic word (not "food", "product", etc.)
+        words = re.findall(r'\b[a-zA-Z]+\b', description.lower())
+        for w in words:
+            if w not in {"food", "product", "prepared", "style", "type", "brand", "plain", "lowfat", "nonfat", "fatfree", "skim", "whole", "reduced", "original", "natural"}:
+                return w
+        return words[0] if words else ""
+
     for category, keywords in meal_keywords.items():
         # Shuffle keywords for variety
         random.shuffle(keywords)
-        meals = fetch_usda_meals(keywords, allergies, wanted_count=6)
+        meals = fetch_usda_meals(keywords, allergies, wanted_count=20)  # Fetch more for better filtering
         # Shuffle meals for variety
         random.shuffle(meals)
         recs = []
         macro_target = {k: round(v * proportions[category]) for k, v in daily_macros.items()}
+        portion_multiplier = portion_map.get(category, 1)
+        used_main_words = set()
         for food in meals:
-            # Allergy and preference check
             ingredients = food.get("ingredients", "Unknown")
             description = food.get("description", "").lower()
             if any(a in (ingredients.lower() + description) for a in allergies):
                 continue
-            if food_preferences and not any(fp in description or fp in ingredients.lower() for fp in food_preferences):
-                continue  # Skip meals the user dislikes
-            # Nutrition
-            nutrition = extract_nutrition(food)
-            # Only include meals within ±30% of macro target for the category
+            nutrition = extract_nutrition(food, portion_multiplier)
             within_macros = all(
                 abs(nutrition[k] - macro_target[k]) <= macro_target[k] * 0.3
                 for k in macro_target
             )
             if not within_macros:
                 continue
+            main_word = get_main_word(description)
+            if main_word in used_main_words:
+                continue  # Skip if we've already used this main type
+            used_main_words.add(main_word)
             recs.append({
                 "id": food.get("fdcId"),
                 "description": food.get("description"),
@@ -306,8 +329,37 @@ def recommend():
                 "nutrition": nutrition,
                 "macro_target": macro_target
             })
-            if len(recs) == 3:  # 3 meals per category
+            if len(recs) == 3:
                 break
+        # Fill up to 3 if needed (with closest macros, but still unique main words)
+        if len(recs) < 3:
+            leftovers = []
+            for food in meals:
+                if any(r['id'] == food.get("fdcId") for r in recs):
+                    continue
+                ingredients = food.get("ingredients", "Unknown")
+                description = food.get("description", "").lower()
+                if any(a in (ingredients.lower() + description) for a in allergies):
+                    continue
+                nutrition = extract_nutrition(food, portion_multiplier)
+                main_word = get_main_word(description)
+                if main_word in used_main_words:
+                    continue
+                diff = sum(abs(nutrition[k] - macro_target[k]) for k in macro_target)
+                leftovers.append((diff, {
+                    "id": food.get("fdcId"),
+                    "description": food.get("description"),
+                    "ingredients": ingredients,
+                    "nutrition": nutrition,
+                    "macro_target": macro_target
+                }))
+            leftovers.sort(key=lambda x: x[0])
+            for _, meal in leftovers:
+                recs.append(meal)
+                used_main_words.add(get_main_word(meal["description"]))
+                if len(recs) == 3:
+                    break
+
         recommendations[category] = recs
     return jsonify(recommendations)
 

@@ -15,13 +15,11 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     document.getElementById('generateExerciseBtn').addEventListener('click', function() {
-        const goal = document.getElementById('goal').value;
-        if (goal === 'muscle_gain' || goal === 'flexibility') {
-            showMuscleSelection();
-        } else {
-            document.getElementById('muscleSelection').style.display = 'none';
-            getExercises();
-        }
+        getExercises();
+    });
+
+    document.getElementById('getExercisesBtn').addEventListener('click', function() {
+        getExercises();
     });
 
     // Generate muscle group checkboxes
@@ -30,6 +28,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const label = document.createElement('label');
         label.innerHTML = `<input type="checkbox" value="${muscle}"> ${muscle}`;
         muscleDiv.appendChild(label);
+    });
+
+    // Optional: auto-refresh exercises when muscle group selection changes
+    muscleDiv.addEventListener('change', function() {
+        const goal = document.getElementById('goal').value;
+        if (goal === 'muscle_gain' || goal === 'flexibility') {
+            getExercises();
+        }
     });
 });
 
@@ -81,9 +87,9 @@ function displayExercises(exercises) {
         `;
         if (ex.exerciseType === "strength") {
             details += `
-                <p><b>Body Parts:</b> ${ex.bodyParts.join(', ')}</p>
-                <p><b>Target Muscles:</b> ${ex.targetMuscles.join(', ')}</p>
-                <p><b>Equipment:</b> ${ex.equipments.join(', ')}</p>
+                <p><b>Body Parts:</b> ${ex.bodyParts ? ex.bodyParts.join(', ') : ''}</p>
+                <p><b>Target Muscles:</b> ${ex.targetMuscles ? ex.targetMuscles.join(', ') : ''}</p>
+                <p><b>Equipment:</b> ${ex.equipments ? ex.equipments.join(', ') : ''}</p>
             `;
         } else if (ex.exerciseType === "cardio") {
             details += `
@@ -92,7 +98,7 @@ function displayExercises(exercises) {
             `;
         } else if (ex.exerciseType === "stretching") {
             details += `
-                <p><b>Flexibility Focus:</b> ${ex.bodyParts.join(', ')}</p>
+                <p><b>Flexibility Focus:</b> ${ex.bodyParts ? ex.bodyParts.join(', ') : ''}</p>
                 <p><b>Instructions:</b> ${ex.instructions || 'See link for details.'}</p>
             `;
         }
@@ -102,7 +108,6 @@ function displayExercises(exercises) {
 }
 
 function confirmExercise(exerciseId) {
-    // Log exercise for cooldown (send to backend in production)
     alert('Exercise logged!');
     // Optionally update daily stats here
 }
