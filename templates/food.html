@@ -10,7 +10,6 @@
     <script>
         window.currentUserId = "{{ user_id }}";
     </script>
-    <script src="/static/food.js"></script>
     
     <div class="container">
         <h1 style="text-align:center;">Daily Dietary and Meal Recommendations</h1>
@@ -69,6 +68,7 @@
         <button id="identifyMealBtn" class="button">Identify Meal</button>
         <div id="mealIdentificationResult"></div>
     </div>
-    <p><strong>Ingredients:</strong> ${meal.ingredients && meal.ingredients !== "Unknown" ? meal.ingredients : 'Ingredients not found'}</p>
+    <script src="/static/food.js"></script>
+
 </body>
 </html>

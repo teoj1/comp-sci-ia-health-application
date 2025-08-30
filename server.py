@@ -28,7 +28,7 @@ def fetch_usda_meals(category_keywords, user_allergies, wanted_count=3):
     url = f"https://api.nal.usda.gov/fdc/v1/foods/search?api_key={USDA_API_KEY}"
     payload = {
         "query": ", ".join(category_keywords),
-        "pageSize": 60,
+        "pageSize": 20,  # Lowered for speed
         "dataType": ["Foundation", "SR Legacy", "Survey (FNDDS)"]
     }
     resp = requests.post(url, json=payload)
@@ -36,21 +36,21 @@ def fetch_usda_meals(category_keywords, user_allergies, wanted_count=3):
     safe_foods = []
     for food in foods:
         text = (food.get('description', '') + ' ' + food.get('ingredients', '')).lower()
-        if not any(a.lower() in text for a in user_allergies):
-            # Fetch full nutrient info for this food
-            fdc_id = food.get('fdcId')
-            if not fdc_id:
-                continue
-            detail_url = f"https://api.nal.usda.gov/fdc/v1/food/{fdc_id}?api_key={USDA_API_KEY}"
-            detail_resp = requests.get(detail_url)
-            if detail_resp.status_code == 200:
-                food_detail = detail_resp.json()
-                # Merge description and ingredients from search result for consistency
-                food_detail['description'] = food.get('description', '')
-                food_detail['ingredients'] = food.get('ingredients', 'Unknown')
-                safe_foods.append(food_detail)
-            if len(safe_foods) == wanted_count:
-                break
+        if any(a.lower() in text for a in user_allergies):
+            continue  # Skip foods with allergies
+        # Only fetch details if it passes allergy check
+        fdc_id = food.get('fdcId')
+        if not fdc_id:
+            continue
+        detail_url = f"https://api.nal.usda.gov/fdc/v1/food/{fdc_id}?api_key={USDA_API_KEY}"
+        detail_resp = requests.get(detail_url)
+        if detail_resp.status_code == 200:
+            food_detail = detail_resp.json()
+            food_detail['description'] = food.get('description', '')
+            food_detail['ingredients'] = food.get('ingredients', 'Unknown')
+            safe_foods.append(food_detail)
+        if len(safe_foods) == wanted_count:
+            break
     return safe_foods
 
 class User(db.Model):
@@ -289,7 +289,7 @@ def recommend():
             if any(a in (ingredients.lower() + description) for a in allergies):
                 continue
             if food_preferences and not any(fp in description or fp in ingredients.lower() for fp in food_preferences):
-                continue
+                continue  # Skip meals the user dislikes
             # Nutrition
             nutrition = extract_nutrition(food)
             # Only include meals within ±30% of macro target for the category
@@ -483,6 +483,7 @@ def api_exercise_recommendation():
 
 def get_user_stats(user_id):
     # Aggregate diet logs
+    user = db.session.get(User, user_id)
     meals = Meal.query.filter_by(user_id=user_id).order_by(Meal.date.desc()).all()
     activities = Activity.query.filter_by(user_id=user_id).order_by(Activity.timestamp.desc()).all()
     user = db.session.get(User, user_id)
