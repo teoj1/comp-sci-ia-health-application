@@ -1,3 +1,5 @@
+let macroChart, calorieTrendChart, exerciseTrendChart, intensityPieChart;
+
 function fetchStats() {
     fetch('/api/dashboard_stats?user_id=' + window.currentUserId)
         .then(res => res.json())
@@ -26,7 +28,8 @@ function updateDashboard(stats) {
         <b>Calories Burned:</b> ${stats.exercise.calories} kcal
     `;
     // Macronutrient progress bars (Chart.js doughnut)
-    new Chart(document.getElementById('macroChart'), {
+    if (macroChart) macroChart.destroy();
+    macroChart = new Chart(document.getElementById('macroChart'), {
         type: 'doughnut',
         data: {
             labels: ['Protein', 'Carbs', 'Fat'],
@@ -44,7 +47,8 @@ function updateDashboard(stats) {
         }
     });
     // Weekly calorie trend (line)
-    new Chart(document.getElementById('calorieTrendChart'), {
+    if (calorieTrendChart) calorieTrendChart.destroy();
+    calorieTrendChart = new Chart(document.getElementById('calorieTrendChart'), {
         type: 'line',
         data: {
             labels: Array.from({length: 7}, (_, i) => `Day ${i+1}`),
@@ -57,7 +61,8 @@ function updateDashboard(stats) {
         }
     });
     // Weekly exercise trend (line)
-    new Chart(document.getElementById('exerciseTrendChart'), {
+    if (exerciseTrendChart) exerciseTrendChart.destroy();
+    exerciseTrendChart = new Chart(document.getElementById('exerciseTrendChart'), {
         type: 'line',
         data: {
             labels: Array.from({length: 7}, (_, i) => `Day ${i+1}`),
@@ -75,7 +80,8 @@ function updateDashboard(stats) {
         }
     });
     // Intensity pie chart
-    new Chart(document.getElementById('intensityPieChart'), {
+    if (intensityPieChart) intensityPieChart.destroy();
+    intensityPieChart = new Chart(document.getElementById('intensityPieChart'), {
         type: 'pie',
         data: {
             labels: ['Low', 'Moderate', 'High'],

@@ -1,6 +1,3 @@
-// --- Demo data storage (replace with AJAX/Flask for real app) ---
-let activityHistory = JSON.parse(localStorage.getItem('activityHistory') || "[]");
-
 function calculateCalories(type, duration, intensity) {
     // Simple MET-based estimation 
     const METS = {
@@ -43,18 +40,31 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('activityForm').addEventListener('submit', function(e) {
         e.preventDefault();
         const entry = {
-            type: document.getElementById('activityType').value,
+            user_id: window.currentUserId, // Make sure this is set in your exercise.html
+            activityType: document.getElementById('activityType').value,
             duration: parseInt(document.getElementById('duration').value),
             intensity: parseInt(document.getElementById('intensity').value),
             calories: parseInt(document.getElementById('calories').value),
             dateTime: document.getElementById('dateTime').value
         };
-        activityHistory.push(entry);
-        localStorage.setItem('activityHistory', JSON.stringify(activityHistory));
-        renderHistory();
-        this.reset();
-        document.getElementById('intensityValue').textContent = 2;
-        document.getElementById('calories').value = '';
+        fetch('/api/activity', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(entry)
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                renderHistory();
+                this.reset();
+                document.getElementById('intensityValue').textContent = 2;
+                document.getElementById('calories').value = '';
+                // IMMEDIATE DASHBOARD REFRESH:
+                window.location.href = "/dashboard?user_id=" + window.currentUserId;
+            } else {
+                alert('Failed to save activity: ' + (data.error || 'Unknown error'));
+            }
+        });
     });
 
     // Filters
@@ -68,38 +78,43 @@ function renderHistory() {
     const from = document.getElementById('filterFrom').value;
     const to = document.getElementById('filterTo').value;
     const type = document.getElementById('filterType').value;
-    let filtered = activityHistory.slice();
 
-    if (from) filtered = filtered.filter(e => e.dateTime >= from);
-    if (to) filtered = filtered.filter(e => e.dateTime <= to + "T23:59");
-    if (type) filtered = filtered.filter(e => e.type === type);
+    // Fetch activity history from backend
+    let url = `/api/activity?user_id=${window.currentUserId}`;
+    if (from) url += `&from=${from}`;
+    if (to) url += `&to=${to}`;
+    if (type) url += `&type=${encodeURIComponent(type)}`;
 
-    let html = '';
-    if (filtered.length === 0) {
-        html = '<p style="color:#888;">No activity records found for the selected filter.</p>';
-    } else {
-        html = `<table class="activity-table">
-            <thead>
-                <tr>
-                    <th>Type</th>
-                    <th>Duration (min)</th>
-                    <th>Intensity</th>
-                    <th>Calories</th>
-                    <th>Date & Time</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${filtered.map(e => `
-                    <tr>
-                        <td>${e.type}</td>
-                        <td>${e.duration}</td>
-                        <td>${e.intensity}</td>
-                        <td>${e.calories}</td>
-                        <td>${e.dateTime.replace('T', ' ')}</td>
-                    </tr>
-                `).join('')}
-            </tbody>
-        </table>`;
-    }
-    document.getElementById('historyTable').innerHTML = html;
+    fetch(url)
+        .then(res => res.json())
+        .then(filtered => {
+            let html = '';
+            if (!filtered || filtered.length === 0) {
+                html = '<p style="color:#888;">No activity records found for the selected filter.</p>';
+            } else {
+                html = `<table class="activity-table">
+                    <thead>
+                        <tr>
+                            <th>Type</th>
+                            <th>Duration (min)</th>
+                            <th>Intensity</th>
+                            <th>Calories</th>
+                            <th>Date & Time</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${filtered.map(e => `
+                            <tr>
+                                <td>${e.activityType}</td>
+                                <td>${e.duration}</td>
+                                <td>${e.intensity}</td>
+                                <td>${e.calories}</td>
+                                <td>${e.dateTime.replace('T', ' ').replace('Z','')}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>`;
+            }
+            document.getElementById('historyTable').innerHTML = html;
+        });
 }

@@ -376,7 +376,7 @@ def meal_details(meal_id):
 @app.route('/activitylog')
 def exercise(): 
     user_id = request.args.get('user_id')
-    return render_template('exercise.html')
+    return render_template('exercise.html', user_id=user_id)
 
 @app.route('/exerciserecommendation')
 def exercise_recommendation():
@@ -593,14 +593,13 @@ def get_user_stats(user_id):
         "intensity_dist": intensity_counts
     }
 
-@lru_cache(maxsize=32)
 def get_cached_stats(user_id):
     return get_user_stats(user_id)
 
 @app.route('/api/dashboard_stats')
 def dashboard_stats():
     user_id = request.args.get('user_id')
-    stats = get_cached_stats(user_id)
+    stats = get_user_stats(user_id)
     return jsonify(stats)
 
 @app.route('/api/daily_summary')
@@ -643,6 +642,31 @@ def daily_summary():
         "macronutrients": total_macros,
         "exercise": total_exercise
     })
+@app.route('/api/meal_history', methods=['GET'])
+def get_meal_history():
+    user_id = request.args.get('user_id')
+    if not user_id or not db.session.get(User, user_id):
+        return jsonify({'error': 'Invalid user'}), 400
+    query = Meal.query.filter_by(user_id=user_id)
+    from_date = request.args.get('from')
+    to_date = request.args.get('to')
+    if from_date:
+        query = query.filter(Meal.date >= from_date)
+    if to_date:
+        query = query.filter(Meal.date <= to_date)
+    meals = query.order_by(Meal.date.desc()).all()
+    return jsonify([
+        {
+            'id': m.id,
+            'date': m.date.isoformat(),
+            'description': m.description,
+            'ingredients': m.ingredients,
+            'calories': m.calories,
+            'protein': m.protein,
+            'carbs': m.carbs,
+            'fat': m.fat
+        } for m in meals
+    ])
 # To run this server, use the command:
 # python -m flask --app server run
 

@@ -15,7 +15,9 @@ let macroTotals = {
 
 document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('generateMealsBtn').addEventListener('click', loadMeals);
-    updateMacroSummary(); // Initialize summary on page load
+    renderMealHistory();
+    
+    document.getElementById('viewMealHistoryBtn').addEventListener('click', renderMealHistory);
 });
 
 
@@ -94,8 +96,9 @@ function confirmMeal(meal) {
     .then(data => {
         if (data.message) {
             alert('Meal logged!');
-            addMealToHistory(mealData);
-            updateMacroSummary();
+            renderMealHistory();
+            // Redirect to dashboard for updated progress bars
+            window.location.href = "/dashboard?user_id=" + window.currentUserId;
         } else {
             alert('Error logging meal.');
         }
@@ -153,7 +156,7 @@ if (mealForm) {
         .then(data => {
             if (data.message) {
                 alert('Meal logged!');
-                addMealToHistory(mealData);
+                renderMealHistory();
             } else {
                 alert('Error logging meal.');
             }
@@ -168,6 +171,40 @@ function updateMacroSummary() {
     document.getElementById('macroProtein').textContent = `Protein: ${macroTotals.protein} / ${DAILY_MACROS.protein}g`;
     document.getElementById('macroCarbs').textContent = `Carbs: ${macroTotals.carbs} / ${DAILY_MACROS.carbs}g`;
     document.getElementById('macroFat').textContent = `Fat: ${macroTotals.fat} / ${DAILY_MACROS.fat}g`;
+}
+
+function renderMealHistory() {
+    fetch(`/api/meal_history?user_id=${window.currentUserId}`)
+        .then(res => res.json())
+        .then(meals => {
+            const historyList = document.getElementById('mealHistoryList');
+            historyList.innerHTML = '';
+            let totals = {calories:0, protein:0, carbs:0, fat:0};
+            if (Array.isArray(meals)) {
+                meals.forEach(meal => {
+                    const entry = document.createElement('tr');
+                    entry.innerHTML = `
+                        <td>${meal.date}</td>
+                        <td>${meal.description}</td>
+                        <td>${meal.ingredients}</td>
+                        <td>${meal.calories} kcal</td>
+                        <td>${meal.protein}</td>
+                        <td>${meal.carbs}</td>
+                        <td>${meal.fat}</td>
+                    `;
+                    historyList.appendChild(entry);
+                    // Sum macros for today only
+                    if (meal.date === new Date().toISOString().slice(0,10)) {
+                        totals.calories += Number(meal.calories) || 0;
+                        totals.protein += Number(meal.protein) || 0;
+                        totals.carbs += Number(meal.carbs) || 0;
+                        totals.fat += Number(meal.fat) || 0;
+                    }
+                });
+            }
+            macroTotals = totals;
+            updateMacroSummary();
+        });
 }
 
 // async function fetchIngredientsForMeals(meals) {

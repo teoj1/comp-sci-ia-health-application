@@ -7,6 +7,9 @@
     <link rel="stylesheet" href="/static/dashboard.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="/static/dashboard.js"></script>
+    <script>
+        window.currentUserId = "{{ user.id }}";
+    </script>
 </head>
 <body>
     <div class="dashboard-grid">
@@ -42,6 +45,10 @@
         <div class="card">
             <h2>Today's Exercise Log</h2>
             <div id="dailyExercise"></div>
+        </div>
+        <div class="card">
+            <h2>Suggestions</h2>
+            <div id="dailySuggestions"></div>
         </div>
         <!-- Navigation -->
         <div class="card nav-card">
