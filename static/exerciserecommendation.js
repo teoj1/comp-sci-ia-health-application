@@ -46,25 +46,29 @@ function showMuscleSelection() {
 function getExercises(lowerIntensity = false) {
     const user_id = window.currentUserId;
     const goal = document.getElementById('goal').value;
-    const level = document.getElementById('level').value;
-    const gender = window.currentUserGender || 'male'; // Set this from backend/session
+    // Only include 'level' if the user explicitly selected something in the dropdown
+    const levelSelect = document.getElementById('level');
+    const level = (levelSelect && levelSelect.value) ? levelSelect.value : undefined;
+    const gender = window.currentUserGender || 'male';
     const muscles = Array.from(document.querySelectorAll('#muscleGroups input:checked')).map(cb => cb.value);
-    const age = window.currentUserAge; // Assuming you have this data
-    const weight = window.currentUserWeight; // Assuming you have this data
+    const age = window.currentUserAge;
+    const weight = window.currentUserWeight;
+
+    const payload = {
+        user_id,
+        goal,
+        gender,
+        muscles,
+        age,
+        weight,
+        lower_intensity: lowerIntensity
+    };
+    if (level !== undefined) payload.level = level; // only send if present
 
     fetch('/api/exercise_recommendation', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-            user_id,
-            goal,
-            level,
-            gender,
-            muscles, // array
-            age,
-            weight,
-            lower_intensity: lowerIntensity // <-- send the flag
-        })
+        body: JSON.stringify(payload)
     })
     .then(res => res.json())
     .then(data => {

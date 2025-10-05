@@ -13,11 +13,26 @@ let macroTotals = {
 };
 
 
+// handleImageUpload placeholder - shows preview if #mealImagePreview exists
+function handleImageUpload(event) {
+    const file = event?.target?.files?.[0];
+    if (!file) return;
+    const preview = document.getElementById('mealImagePreview');
+    if (preview) {
+        const reader = new FileReader();
+        reader.onload = () => { preview.src = reader.result; };
+        reader.readAsDataURL(file);
+    }
+}
+
+
 document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('generateMealsBtn').addEventListener('click', loadMeals);
     renderMealHistory();
-    
+
     document.getElementById('viewMealHistoryBtn').addEventListener('click', renderMealHistory);
+
+    // removed programmatic hidden file input (we use #mealImageInput present in template)
 });
 
 
@@ -207,46 +222,85 @@ function renderMealHistory() {
         });
 }
 
-// async function fetchIngredientsForMeals(meals) {
-//     const GOOGLE_API_KEY = 'AIzaSyCOGmhXar6SGEizGd2vpxznQ7ESSoIPZNA'; // <-- your real key
-//     const GOOGLE_CSE_ID = '80aa6e2c5b0e44514'; // <-- your real CSE ID
+// Replace the existing identify click handler to call predict_and_estimate and allow adding estimated meal
+document.getElementById('identifyMealBtn').addEventListener('click', async function() {
+    const input = document.getElementById('mealImageInput');
+    const file = input && input.files && input.files[0];
+    if (!file) {
+        alert("Please select an image first.");
+        return;
+    }
 
-//     async function getIngredients(mealName) {
-//         const query = encodeURIComponent(mealName + ' recipe ingredients');
-//         const url = `https://www.googleapis.com/customsearch/v1?key=${GOOGLE_API_KEY}&cx=${GOOGLE_CSE_ID}&q=${query}&num=1`;
-//         const resp = await fetch(url);
-//         const data = await resp.json();
-//         if (data.items && data.items.length > 0) {
-//             const item = data.items[0];
-//             // Try to extract ingredients from structured data
-//             if (item.pagemap && item.pagemap.recipe && item.pagemap.recipe.length > 0) {
-//                 const recipe = item.pagemap.recipe[0];
-//                 if (recipe.recipeingredient) {
-//                     return Array.isArray(recipe.recipeingredient)
-//                         ? recipe.recipeingredient.join(', ')
-//                         : recipe.recipeingredient;
-//                 }
-//             }
-//             // Fallback to snippet
-//             const snippet = item.snippet;
-//             if (snippet.includes('Ingredients:')) {
-//                 let ing = snippet.split('Ingredients:')[1];
-//                 ing = ing.split(/\.|Directions|Method/)[0];
-//                 return ing.trim();
-//             }
-//             return snippet.trim();
-//         }
-//         return 'Ingredients not found';
-//     }
+    const mealType = (window.prompt("Meal type (breakfast, lunch, dinner, snack)", "lunch") || "lunch").toLowerCase();
+    const formData = new FormData();
+    formData.append('image', file);
+    formData.append('meal_type', mealType);
 
-//     // For each meal, fetch ingredients and update the meal object
-//     const mealTypes = ['breakfast', 'lunch', 'dinner', 'snacks'];
-//     for (const type of mealTypes) {
-//         if (Array.isArray(meals[type])) {
-//             for (const meal of meals[type]) {
-//                 meal.ingredients = await getIngredients(meal.description);
-//             }
-//         }
-//     }
-//     displayMeals(meals); // Now display with ingredients
-// }
+    try {
+        const res = await fetch('/api/predict_and_estimate', { method: 'POST', body: formData });
+        const data = await res.json();
+        const resultDiv = document.getElementById('mealIdentificationResult');
+        if (!resultDiv) return;
+
+        if (data.predicted_class) {
+            let html = `<b>Predicted food:</b> ${data.predicted_class} <br><b>Confidence:</b> ${(data.confidence * 100).toFixed(1)}%<br>`;
+            html += `<b>Ingredients:</b> ${data.ingredients || 'Not found'}<br>`;
+
+            if (data.per_100g) {
+                html += `<b>Per 100g:</b> ${data.per_100g.calories || 0} kcal, ${data.per_100g.protein || 0}g P, ${data.per_100g.carbs || 0}g C, ${data.per_100g.fat || 0}g F<br>`;
+            }
+            if (data.estimated_portion) {
+                html += `<b>Estimated portion (mult ${data.portion_multiplier}):</b> ${data.estimated_portion.calories} kcal, ${data.estimated_portion.protein}g P, ${data.estimated_portion.carbs}g C, ${data.estimated_portion.fat}g F<br>`;
+                html += `<button id="addEstimatedMealBtn" class="button">Add estimated meal to log</button>`;
+            } else {
+                html += `<span style="color:orange">No estimated nutrition available.</span>`;
+            }
+            resultDiv.innerHTML = html;
+
+            // wire add-to-log button
+            const addBtn = document.getElementById('addEstimatedMealBtn');
+            if (addBtn) {
+                addBtn.addEventListener('click', async () => {
+                    const mealData = {
+                        user_id: window.currentUserId,
+                        date: new Date().toISOString().slice(0,10),
+                        description: data.predicted_class,
+                        ingredients: data.ingredients || '',
+                        calories: Math.round(data.estimated_portion?.calories || 0),
+                        protein: Math.round(data.estimated_portion?.protein || 0),
+                        carbs: Math.round(data.estimated_portion?.carbs || 0),
+                        fat: Math.round(data.estimated_portion?.fat || 0)
+                    };
+                    try {
+                        const resp = await fetch('/record_calories', {
+                            method: 'POST',
+                            headers: {'Content-Type':'application/json'},
+                            body: JSON.stringify(mealData)
+                        });
+                        const j = await resp.json();
+                        if (j.message) {
+                            alert('Estimated meal logged.');
+                            renderMealHistory();
+                            // update summary immediately
+                            macroTotals.calories += mealData.calories;
+                            macroTotals.protein += mealData.protein;
+                            macroTotals.carbs += mealData.carbs;
+                            macroTotals.fat += mealData.fat;
+                            updateMacroSummary();
+                        } else {
+                            alert('Failed to log meal: ' + (j.error || 'unknown'));
+                        }
+                    } catch (err) {
+                        console.error(err);
+                        alert('Failed to save estimated meal.');
+                    }
+                });
+            }
+        } else {
+            resultDiv.innerHTML = `<span style="color:red;">${data.error || "Prediction failed."}</span>`;
+        }
+    } catch (err) {
+        console.error(err);
+        alert('Error communicating with server.');
+    }
+});

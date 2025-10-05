@@ -1,7 +1,9 @@
-from flask import Flask, render_template, jsonify 
+from flask import Flask, render_template, jsonify, request 
 from flask_sqlalchemy import SQLAlchemy 
-import uuid
-from flask import request
+import torch
+import torchvision
+import torchvision.models as models
+import torchvision.transforms as transforms
 from PIL import Image
 import numpy as np
 import os
@@ -16,15 +18,129 @@ import random
 from functools import lru_cache
 from datetime import timedelta
 import re
+import torch
+import torch.nn as nn
+import torchvision
+import torchvision.models as models
+import uuid
+
+# removed eager tensorflow/keras imports to avoid import-time failures
+# import tensorflow 
+# from tensorflow import keras
+# from keras import models
+# from keras.models import load_model
 
 conn = http.client.HTTPSConnection("exercisedb-api1.p.rapidapi.com")
-app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
+# Initialize Flask app first
 USDA_API_KEY = "BQazS4IWGw7VKfBNHFbEJfLPab1wz1ROSZf1xS6K"
 GOOGLE_API_KEY = "AIzaSyCOGmhXar6SGEizGd2vpxznQ7ESSoIPZNA"
 GOOGLE_CSE_ID = "80aa6e2c5b0e44514"
+app = Flask(__name__)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
+app.config['DEBUG'] = True
+
+# Initialize SQLAlchemy with app
 db = SQLAlchemy(app)
 
+# Model constants
+MODEL_PATH = "foodtrainer.h5"
+CLASSES_PATH = "foodtrainer_classes.json"
+food_model = None
+CLASS_LABELS = []
+
+class FoodClassifierPyTorch(nn.Module):
+    def __init__(self, num_classes):
+        super().__init__()
+        self.backbone = models.efficientnet_b0(pretrained=True)
+        in_features = self.backbone.classifier[1].in_features
+        self.classifier = nn.Sequential(
+            nn.Dropout(p=0.3),
+            nn.Linear(in_features, 128),
+            nn.ReLU(),
+            nn.Linear(128, num_classes)
+        )
+        self.backbone.classifier = self.classifier
+
+    def forward(self, x):
+        return self.backbone(x)
+
+def ensure_model_loaded():
+    """Safe model loading with error handling"""
+    global food_model, CLASS_LABELS
+    
+    if food_model is not None:
+        return True
+        
+    if not os.path.exists(MODEL_PATH):
+        print(f"Error: Model file not found at {MODEL_PATH}")
+        return False
+        
+    if not os.path.exists(CLASSES_PATH):
+        print(f"Error: Classes file not found at {CLASSES_PATH}")
+        return False
+        
+    try:
+        # Load class labels first
+        with open(CLASSES_PATH, 'r') as f:
+            CLASS_LABELS = json.load(f)
+            print(f"Loaded {len(CLASS_LABELS)} classes")
+            
+        # Create model instance
+        model = FoodClassifierPyTorch(len(CLASS_LABELS))
+        model.eval()  # Set to evaluation mode
+        
+        # Load weights
+        state_dict = torch.load(MODEL_PATH, map_location='cpu')
+        model.load_state_dict(state_dict)
+        
+        food_model = model
+        print("Model loaded successfully")
+        return True
+        
+    except Exception as e:
+        print(f"Error loading model: {str(e)}")
+        return False
+
+@app.route('/api/predict_food', methods=['POST'])
+def predict_food():
+    if not ensure_model_loaded():
+        return jsonify({"error": "Model failed to load"}), 500
+
+    if 'image' not in request.files:
+        return jsonify({"error": "No image uploaded"}), 400
+
+    file = request.files['image']
+    if file.filename == '':
+        return jsonify({"error": "Empty filename"}), 400
+
+    try:
+        # Load and preprocess image
+        image = Image.open(file.stream).convert('RGB')
+        transform = transforms.Compose([
+            transforms.Resize((224, 224)),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                              std=[0.229, 0.224, 0.225])
+        ])
+        
+        input_tensor = transform(image).unsqueeze(0)
+        
+        # Get prediction
+        with torch.no_grad():
+            outputs = food_model(input_tensor)
+            probabilities = torch.nn.functional.softmax(outputs[0], dim=0)
+            confidence, predicted = torch.max(probabilities, 0)
+            
+        predicted_class = CLASS_LABELS[predicted.item()]
+        
+        return jsonify({
+            "predicted_class": predicted_class,
+            "confidence": float(confidence)
+        })
+        
+    except Exception as e:
+        print(f"Prediction error: {str(e)}")
+        return jsonify({"error": str(e)}), 500
 
 portion_map = {
     'breakfast': 2,
@@ -32,6 +148,20 @@ portion_map = {
     'dinner': 3,
     'snack': 0.3
 }
+
+def load_food_model():
+    """Lazy load the model only when needed"""
+    global food_model
+    if food_model is None and os.path.exists(MODEL_PATH):
+        try:
+            import tensorflow as tf
+            food_model = tf.keras.models.load_model(MODEL_PATH)
+            print("Food model loaded successfully")
+        except Exception as e:
+            print(f"Error loading food model: {e}")
+            food_model = None
+    return food_model
+
 def fetch_usda_meals(category_keywords, user_allergies, wanted_count=3):
     url = f"https://api.nal.usda.gov/fdc/v1/foods/search?api_key={USDA_API_KEY}"
     payload = {
@@ -109,6 +239,16 @@ class Activity(db.Model):
     intensity = db.Column(db.Integer) # 1-5
     calories = db.Column(db.Integer)
     timestamp = db.Column(db.DateTime)
+    # new gym-specific fields
+    gym_exercise = db.Column(db.String(100), nullable=True)
+    lift_weight = db.Column(db.Float, nullable=True)
+    reps = db.Column(db.Integer, nullable=True)
+    sets = db.Column(db.Integer, nullable=True)
+    time_per_rep = db.Column(db.Float, nullable=True)  # seconds
+
+# Create tables
+with app.app_context():
+    db.create_all()
 
 @app.route('/')
 def main():
@@ -154,23 +294,96 @@ def food():
     user_id = request.args.get('user_id')  # Or get from session
     return render_template('food.html', user_id=user_id)
 
+def compute_gym_calories(user_weight_kg, gym_exercise=None, duration_min=None, lift_weight_kg=0, intensity=2, reps=0, sets=0, time_per_rep=3.0):
+    """
+    Compute calories for gym strength exercise.
+    Accepts either duration_min OR (reps and sets + time_per_rep) to derive duration.
+    Formula: calories_per_min = MET * bodyweight(kg) * 0.0175
+    Source: Compendium of Physical Activities (MET definition)
+    """
+    GYM_METS = {
+        "squat": 6.0,
+        "deadlift": 6.5,
+        "bench press": 5.5,
+        "overhead press": 6.0,
+        "pull-up": 8.0,
+        "leg presses": 6.0,
+        "bicep curls": 4.0,
+        "skullcrushers": 4.5,
+        "one arm rows": 5.0,
+        "lunges": 5.5
+    }
+    met = GYM_METS.get((gym_exercise or "").lower(), 5.0)
+    # derive duration if not given
+    if (not duration_min or float(duration_min) <= 0) and reps and sets:
+        duration_min = (reps * sets * float(time_per_rep)) / 60.0
+    try:
+        duration_min = float(duration_min or 0)
+    except Exception:
+        duration_min = 0.0
+    # scale by load used (small effect) capped to +50%
+    load_scale = 1.0 + min(0.5, (lift_weight_kg or 0) / 200.0)
+    # intensity: expected 1-5 -> convert to ~0.8-1.3
+    intensity_scale = 0.8 + ((int(intensity or 2) - 1) * 0.125)
+    body_w = float(user_weight_kg or 70.0)
+    calories_per_min = met * body_w * 0.0175
+    total = calories_per_min * duration_min * load_scale * intensity_scale
+    return int(round(total)), round(duration_min)
+
 @app.route('/api/activity', methods=['POST'])
 def save_activity():
     data = request.get_json()
     user_id = data.get('user_id')
     if not user_id or not db.session.get(User, user_id):
         return jsonify({'error': 'Invalid user'}), 400
-    activity = Activity(
-        user_id=user_id,
-        activity_type=data.get('activityType'),
-        duration=int(data.get('duration', 0)),
-        intensity=int(data.get('intensity', 1)),
-        calories=int(data.get('calories', 0)),
-        timestamp=datetime.fromisoformat(data.get('dateTime'))
-    )
-    db.session.add(activity)
-    db.session.commit()
-    return jsonify({'success': True, 'activity_id': activity.id})
+    user = db.session.get(User, user_id)
+    activity_type = data.get('activityType')
+    # Accept either duration (minutes) or reps/sets for gym
+    duration = int(data.get('duration', 0)) if data.get('duration') is not None else 0
+    intensity = int(data.get('intensity', 1))
+    # gym-specific fields
+    gym_ex = data.get('gymExercise')
+    lift_w = float(data.get('liftWeight') or 0)
+    reps = int(data.get('reps') or 0)
+    sets = int(data.get('sets') or 0)
+    time_per_rep = float(data.get('timePerRep') or 3.0)
+
+    if activity_type and activity_type.lower() == 'gym':
+        computed_cal, computed_duration = compute_gym_calories(
+            user.weight or 70.0,
+            gym_exercise=gym_ex,
+            duration_min=duration,
+            lift_weight_kg=lift_w,
+            intensity=intensity,
+            reps=reps,
+            sets=sets,
+            time_per_rep=time_per_rep
+        )
+        calories_val = computed_cal
+        duration_to_store = int(round(computed_duration))
+    else:
+        calories_val = int(data.get('calories', 0))
+        duration_to_store = duration
+
+    try:
+        activity = Activity(
+            user_id=user_id,
+            activity_type=activity_type,
+            duration=duration_to_store,
+            intensity=intensity,
+            calories=calories_val,
+            timestamp=datetime.fromisoformat(data.get('dateTime')),
+            gym_exercise=gym_ex,
+            lift_weight=lift_w,
+            reps=reps,
+            sets=sets,
+            time_per_rep=time_per_rep
+        )
+        db.session.add(activity)
+        db.session.commit()
+        return jsonify({'success': True, 'activity_id': activity.id})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/activity', methods=['GET'])
 def get_activity():
@@ -197,7 +410,12 @@ def get_activity():
             'duration': a.duration,
             'intensity': a.intensity,
             'calories': a.calories,
-            'dateTime': a.timestamp.isoformat()
+            'dateTime': a.timestamp.isoformat(),
+            'gymExercise': a.gym_exercise,
+            'liftWeight': a.lift_weight,
+            'reps': a.reps,
+            'sets': a.sets,
+            'timePerRep': a.time_per_rep
         } for a in activities
     ])
 
@@ -362,17 +580,6 @@ def recommend():
 
         recommendations[category] = recs
     return jsonify(recommendations)
-
-
-@app.route('/meal/<int:meal_id>')
-def meal_details(meal_id):
-    for meals in MEALS.values():
-        for meal in meals:
-            if meal['id'] == meal_id:
-                return jsonify(meal)
-    return jsonify({"error": "Meal not found"}), 404
-
-
 @app.route('/activitylog')
 def exercise(): 
     user_id = request.args.get('user_id')
@@ -465,13 +672,29 @@ def get_exercises_from_api(params, headers):
 def api_exercise_recommendation():
     data = request.json
     user_id = data.get('user_id')
+    user = db.session.get(User, user_id) if user_id else None
+
+    # Prefer the explicit level sent by client; otherwise fall back to stored value from DB
+    level = (data.get('level') or (user.activity_level if user else None) or "").strip().lower()
     goal = data.get('goal')
-    level = data.get('level')
     gender = data.get('gender')
-    selected_muscles = data.get('muscles', [])
+    selected_muscles = data.get('muscles', []) or []
     age = data.get('age', 25)
     weight = data.get('weight', 70)
-    lower_intensity = data.get('lower_intensity', False)
+    lower_intensity = bool(data.get('lower_intensity', False))
+
+    # Map textual activity_level to a maximum acceptable exercise intensity (1-5)
+    activity_level_to_max_intensity = {
+        "sedentary": 2,
+        "lightly active": 3, "lightly_active": 3, "lightlyactive": 3,
+        "moderately active": 4, "moderately_active": 4, "moderatelyactive": 4,
+        "very active": 5, "very_active": 5, "veryactive": 5,
+        "super active": 5, "super_active": 5, "superactive": 5
+    }
+    # Default max intensity if unknown
+    max_intensity = activity_level_to_max_intensity.get(level, 4)
+    if lower_intensity:
+        max_intensity = max(1, max_intensity - 1)
 
     # Set exerciseType and bodyParts based on goal
     if goal == "muscle_gain":
@@ -503,34 +726,52 @@ def api_exercise_recommendation():
     }
     exercises = get_exercises_from_api(params, headers)
 
-    # --- FIX: Always output cardio/stretching regardless of API structure ---
+    # Heuristics / filtering based on goal (existing logic preserved)
     if goal in ["weight_loss", "endurance"]:
-        # Accept any exercise with 'cardio' in type, or fallback to name keywords
         cardio_exs = [ex for ex in exercises if "cardio" in (str(ex.get("exerciseType", "")) + str(ex.get("type", "")) + str(ex.get("category", ""))).lower()]
         if not cardio_exs:
             cardio_keywords = ["run", "walk", "cycle", "jump", "cardio", "aerobic", "row", "swim", "burpee"]
             cardio_exs = [ex for ex in exercises if any(kw in ex.get("name", "").lower() for kw in cardio_keywords)]
-        # If still empty, fallback to first 5 exercises
         if not cardio_exs and exercises:
             cardio_exs = exercises[:5]
         exercises = cardio_exs
 
     if goal == "flexibility":
-        # Accept any exercise with 'stretch' or 'stretching' in type/category
         stretch_exs = [ex for ex in exercises if "stretch" in (str(ex.get("exerciseType", "")) + str(ex.get("type", "")) + str(ex.get("category", ""))).lower()]
-        # If muscle groups selected, filter by bodyParts
         if selected_muscles:
             stretch_exs = [ex for ex in stretch_exs if any(muscle.lower() in " ".join(ex.get("bodyParts", [])).lower() for muscle in selected_muscles)]
-        # If still empty, fallback to first 5 exercises
         if not stretch_exs and exercises:
             stretch_exs = exercises[:5]
         exercises = stretch_exs
 
-    # Lower intensity filter
-    if lower_intensity:
-        exercises = [ex for ex in exercises if ex.get("intensity", 1) <= 2]
+    # Apply intensity filtering by using exercise['intensity'] when available, otherwise try heuristics
+    def exercise_intensity_value(ex):
+        try:
+            return int(float(ex.get('intensity', ex.get('difficulty', ex.get('level', max_intensity)))))
+        except Exception:
+            # Fallback heuristic: strength/cardio/stretching keywords
+            name = (ex.get('name') or "").lower()
+            if any(k in name for k in ['sprint', 'hiit', 'burpee', 'tabata', 'interval']):
+                return 5
+            if any(k in name for k in ['run', 'cycle', 'rowing', 'jump', 'cardio']):
+                return 4
+            if any(k in name for k in ['walk', 'stretch', 'yoga', 'mobility']):
+                return 2
+            return 3
 
-    recommendations = exercises[:5] if exercises else []
+    filtered_exercises = []
+    for ex in exercises:
+        intensity_val = exercise_intensity_value(ex)
+        if intensity_val <= max_intensity:
+            filtered_exercises.append(ex)
+
+    # If filtering removed too many items, relax filter slightly (keep at least 3 suggestions)
+    if len(filtered_exercises) < 3 and exercises:
+        # sort by closeness to max_intensity and take top 5
+        exercises_with_score = sorted(exercises, key=lambda ex: abs(exercise_intensity_value(ex) - max_intensity))
+        filtered_exercises = exercises_with_score[:5]
+
+    recommendations = filtered_exercises[:5] if filtered_exercises else []
     return jsonify({"recommendations": recommendations})
 
 def get_user_stats(user_id):
@@ -667,13 +908,128 @@ def get_meal_history():
             'fat': m.fat
         } for m in meals
     ])
-# To run this server, use the command:
-# python -m flask --app server run
 
-if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
-    app.run(debug=True)
+def get_spoonacular_estimate(meal_name):
+    """Return ingredients, per_serving and per_100g nutrition (calories, protein, carbs, fat) if available."""
+    SPOONACULAR_API_KEY = "9c2f3b3991c64a47bcd00d3ae163cd84"
+    try:
+        search_url = "https://api.spoonacular.com/recipes/complexSearch"
+        sresp = requests.get(search_url, params={"query": meal_name, "number": 1, "apiKey": SPOONACULAR_API_KEY}, timeout=8)
+        if sresp.status_code != 200:
+            return {"error": "search_failed", "status": sresp.status_code}
+        results = sresp.json().get("results", [])
+        if not results:
+            return {"error": "no_recipe_found"}
 
-# To run this server, use the command:
-# python -m flask --app server run
+        recipe_id = results[0]["id"]
+        info_url = f"https://api.spoonacular.com/recipes/{recipe_id}/information"
+        iresp = requests.get(info_url, params={"includeNutrition": "true", "apiKey": SPOONACULAR_API_KEY}, timeout=8)
+        if iresp.status_code != 200:
+            return {"error": "info_failed", "status": iresp.status_code}
+        info = iresp.json()
+
+        ingredients = ", ".join([ing.get("original", "").strip() for ing in info.get("extendedIngredients", [])]) or "Ingredients not found"
+
+        nut_map = {"calories": 0.0, "protein": 0.0, "carbs": 0.0, "fat": 0.0}
+        for n in info.get("nutrition", {}).get("nutrients", []):
+            name = (n.get("name") or "").lower()
+            amt = float(n.get("amount", 0) or 0)
+            if "calorie" in name:
+                nut_map["calories"] = amt
+            elif "protein" in name:
+                nut_map["protein"] = amt
+            elif "fat" in name:
+                nut_map["fat"] = amt
+            elif "carb" in name:
+                nut_map["carbs"] = amt
+
+        servings = info.get("servings") or 1
+        weight_per_serv = info.get("weightPerServing")
+        weight_g = None
+        if isinstance(weight_per_serv, dict):
+            weight_g = weight_per_serv.get("amount")  # spoonacular uses amount in grams often
+        # per_serving = nut_map already indicates amounts per serving
+        per_serving = {k: round(v, 2) for k, v in nut_map.items()}
+
+        per_100g = None
+        if weight_g and weight_g > 0:
+            factor = 100.0 / float(weight_g)
+            per_100g = {k: round(v * factor, 2) for k, v in per_serving.items()}
+        else:
+            # fallback: assume per_serving corresponds to 100g if nothing else available (best-effort)
+            per_100g = {k: round(v, 2) for k, v in per_serving.items()}
+
+        return {
+            "ingredients": ingredients,
+            "servings": servings,
+            "weight_per_serv_g": weight_g,
+            "per_serving": per_serving,
+            "per_100g": per_100g
+        }
+    except Exception as e:
+        return {"error": "exception", "message": str(e)}
+
+
+@app.route('/api/predict_and_estimate', methods=['POST'])
+def predict_and_estimate():
+    """Predict class from image, query Spoonacular, estimate per-portion macros using portion_map."""
+    if not ensure_model_loaded():
+        return jsonify({"error": "Model failed to load"}), 500
+
+    if 'image' not in request.files:
+        return jsonify({"error": "No image uploaded"}), 400
+    file = request.files['image']
+    if file.filename == '':
+        return jsonify({"error": "Empty filename"}), 400
+
+    meal_type = request.form.get('meal_type', 'lunch')  # breakfast/lunch/dinner/snack
+
+    try:
+        image = Image.open(file.stream).convert('RGB')
+        transform = transforms.Compose([
+            transforms.Resize((224, 224)),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                 std=[0.229, 0.224, 0.225])
+        ])
+        tensor = transform(image).unsqueeze(0)
+        with torch.no_grad():
+            outputs = food_model(tensor)
+            probs = torch.nn.functional.softmax(outputs[0], dim=0)
+            confidence, predicted = torch.max(probs, 0)
+
+        predicted_class = CLASS_LABELS[predicted.item()] if CLASS_LABELS else str(predicted.item())
+
+        sp = get_spoonacular_estimate(predicted_class)
+        if sp.get("error"):
+            return jsonify({
+                "predicted_class": predicted_class,
+                "confidence": float(confidence),
+                "ingredients": sp.get("message", sp.get("error")),
+                "per_100g": None,
+                "estimated_portion": None,
+                "portion_multiplier": portion_map.get(meal_type, 1)
+            })
+
+        per100 = sp.get("per_100g") or {}
+        portion_multiplier = portion_map.get(meal_type, 1)
+        estimated = {
+            "calories": round(float(per100.get("calories", 0)) * portion_multiplier, 1),
+            "protein": round(float(per100.get("protein", 0)) * portion_multiplier, 1),
+            "carbs": round(float(per100.get("carbs", 0)) * portion_multiplier, 1),
+            "fat": round(float(per100.get("fat", 0)) * portion_multiplier, 1)
+        }
+
+        return jsonify({
+            "predicted_class": predicted_class,
+            "confidence": float(confidence),
+            "ingredients": sp.get("ingredients"),
+            "per_100g": per100,
+            "estimated_portion": estimated,
+            "portion_multiplier": portion_multiplier,
+            "note": "You can POST this estimated_portion to /record_calories with user_id to save."
+        })
+
+    except Exception as e:
+        print(f"predict_and_estimate error: {e}")
+        return jsonify({"error": str(e)}), 500
