@@ -24,11 +24,12 @@ import torchvision
 import torchvision.models as models
 import uuid
 
-# removed eager tensorflow/keras imports to avoid import-time failures
+
 # import tensorflow 
 # from tensorflow import keras
 # from keras import models
 # from keras.models import load_model
+
 
 conn = http.client.HTTPSConnection("exercisedb-api1.p.rapidapi.com")
 # Initialize Flask app first
@@ -36,12 +37,14 @@ USDA_API_KEY = "BQazS4IWGw7VKfBNHFbEJfLPab1wz1ROSZf1xS6K"
 GOOGLE_API_KEY = "AIzaSyCOGmhXar6SGEizGd2vpxznQ7ESSoIPZNA"
 GOOGLE_CSE_ID = "80aa6e2c5b0e44514"
 app = Flask(__name__)
+
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
 app.config['DEBUG'] = True
 
 # Initialize SQLAlchemy with app
 db = SQLAlchemy(app)
-
+with app.app_context():
+    db.create_all()
 # Model constants
 MODEL_PATH = "foodtrainer.h5"
 CLASSES_PATH = "foodtrainer_classes.json"
@@ -261,6 +264,10 @@ def main():
 @app.route('/dashboard', methods=['GET', 'POST'])
 def dashboard():
     if request.method == 'POST':
+        password = request.form['password']
+        confirm_password = request.form.get('confirmPassword')
+        if password != confirm_password:
+            return render_template('dashboard.html', error="Passwords do not match.", user=None)
         user_id = str(uuid.uuid4())
         user = User(
             id=user_id,
@@ -268,7 +275,7 @@ def dashboard():
             lname=request.form['lname'],
             weight=request.form['weight'],
             height=request.form['height'],
-            password=generate_password_hash(request.form['password']),
+            password=generate_password_hash(password),
             gender=request.form['gender'],
             dietary_restrictions=request.form['dietaryRestrictions'],
             activity_level=request.form['activityLevel'],
@@ -280,7 +287,6 @@ def dashboard():
         db.session.commit()
         return render_template('dashboard.html', user=user)
     else:
-        # For GET requests, you need to get the user_id from query params or session
         user_id = request.args.get('user_id')
         user = db.session.get(User, user_id) if user_id else None
         return render_template('dashboard.html', user=user)
@@ -342,11 +348,11 @@ def save_activity():
     duration = int(data.get('duration', 0)) if data.get('duration') is not None else 0
     intensity = int(data.get('intensity', 1))
     # gym-specific fields
-    gym_ex = data.get('gymExercise')
-    lift_w = float(data.get('liftWeight') or 0)
+    gym_ex = data.get('gym_exercise')
+    lift_w = float(data.get('lift_weight') or 0)
     reps = int(data.get('reps') or 0)
     sets = int(data.get('sets') or 0)
-    time_per_rep = float(data.get('timePerRep') or 3.0)
+    time_per_rep = float(data.get('time_per_rep') or 3.0)
 
     if activity_type and activity_type.lower() == 'gym':
         computed_cal, computed_duration = compute_gym_calories(

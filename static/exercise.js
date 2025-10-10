@@ -184,13 +184,12 @@ function submitActivityForm(e) {
     };
 
     if (activityTypeVal.toLowerCase() === 'gym') {
-        payload.gymExercise = document.getElementById('gymExercise')?.value || '';
-        payload.liftWeight = parseFloat(document.getElementById('liftWeight')?.value || '0');
+        payload.gym_exercise = document.getElementById('gymExercise')?.value || '';
+        payload.lift_weight = parseFloat(document.getElementById('liftWeight')?.value || '0');
         payload.sets = parseInt(document.getElementById('gymSets')?.value || '0');
         payload.reps = parseInt(document.getElementById('gymReps')?.value || '0');
-        payload.timePerRep = parseFloat(document.getElementById('timePerRep')?.value || '3');
-        payload.restBetween = parseFloat(document.getElementById('restBetween')?.value || '60');
-        // duration was updated by updateCalories to reflect derived minutes
+        payload.time_per_rep = parseFloat(document.getElementById('timePerRep')?.value || '3');
+        payload.rest_between = parseFloat(document.getElementById('restBetween')?.value || '60');
         payload.duration = parseInt(document.getElementById('duration')?.value || payload.duration);
     }
 
