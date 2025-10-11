@@ -513,10 +513,10 @@ def recommend():
 
     recommendations = {}
     def get_main_word(description):
-        # Extract the first non-generic word (not "food", "product", etc.)
+        # Extract the first significant word (not generic modifiers)
         words = re.findall(r'\b[a-zA-Z]+\b', description.lower())
         for w in words:
-            if w not in {"food", "product", "prepared", "style", "type", "brand", "plain", "lowfat", "nonfat", "fatfree", "skim", "whole", "reduced", "original", "natural"}:
+            if w not in {"food", "product", "prepared", "style", "type", "brand", "plain", "lowfat", "nonfat", "fatfree", "skim", "whole", "reduced", "original", "natural", "greek"}:
                 return w
         return words[0] if words else ""
 
@@ -568,7 +568,7 @@ def recommend():
                 nutrition = extract_nutrition(food, portion_multiplier)
                 main_word = get_main_word(description)
                 if main_word in used_main_words:
-                    continue
+                    continue  # <-- This line ensures no duplicates
                 diff = sum(abs(nutrition[k] - macro_target[k]) for k in macro_target)
                 leftovers.append((diff, {
                     "id": food.get("fdcId"),
@@ -925,7 +925,15 @@ def get_spoonacular_estimate(meal_name):
             return {"error": "search_failed", "status": sresp.status_code}
         results = sresp.json().get("results", [])
         if not results:
-            return {"error": "no_recipe_found"}
+            # Try Google Custom Search as a fallback
+            google_ingredients = search_ingredients_google(meal_name)
+            if google_ingredients and google_ingredients != "Ingredients not found":
+                return {
+                    "ingredients": google_ingredients,
+                    "per_100g": None,
+                    "per_serving": None
+                }
+            return {"error": "no_recipe_found", "ingredients": "Ingredients not found"}
 
         recipe_id = results[0]["id"]
         info_url = f"https://api.spoonacular.com/recipes/{recipe_id}/information"
