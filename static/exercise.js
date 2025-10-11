@@ -216,6 +216,51 @@ function submitActivityForm(e) {
     });
 }
 
+// Render activity history
+function renderHistory() {
+    const from = document.getElementById('filterFrom').value;
+    const to = document.getElementById('filterTo').value;
+    const type = document.getElementById('filterType').value;
+
+    let url = `/api/activity?user_id=${window.currentUserId}`;
+    if (from) url += `&from=${from}`;
+    if (to) url += `&to=${to}`;
+    if (type) url += `&type=${encodeURIComponent(type)}`;
+
+    fetch(url)
+        .then(res => res.json())
+        .then(filtered => {
+            let html = '';
+            if (!filtered || filtered.length === 0) {
+                html = '<p style="color:#888;">No activity records found for the selected filter.</p>';
+            } else {
+                html = `<table class="activity-table">
+                    <thead>
+                        <tr>
+                            <th>Type</th>
+                            <th>Duration (min)</th>
+                            <th>Intensity</th>
+                            <th>Calories</th>
+                            <th>Date & Time</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${filtered.map(e => `
+                            <tr>
+                                <td>${e.activityType}</td>
+                                <td>${e.duration}</td>
+                                <td>${e.intensity}</td>
+                                <td>${e.calories}</td>
+                                <td>${e.dateTime.replace('T', ' ').replace('Z','')}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>`;
+            }
+            document.getElementById('historyTable').innerHTML = html;
+        });
+}
+
 // Attach listeners safely
 document.addEventListener('DOMContentLoaded', () => {
     const intensitySlider = document.getElementById('intensity');
@@ -250,4 +295,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // initial UI setup
     onActivityTypeChange();
     updateCalories();
+    renderHistory();
+
+    document.getElementById('applyFilters').addEventListener('click', renderHistory);
 });
