@@ -1,10 +1,4 @@
-/*
-  Exercise form frontend
-  - Handles normal activities (duration in minutes)
-  - Handles gym entries (sets, reps, time per rep, restBetween, load)
-  - Uses MET formula: calories/min = MET * bodyweight(kg) * 0.0175
-  - Gym calories are scaled by load relative to bodyweight and an intensity multiplier
-*/
+
 
 // MET-based simple calculator for cardio/other
 function calculateCalories(type, durationMin, intensity) {
@@ -68,7 +62,7 @@ function calculateGymCalories({ durationMin=0, intensity=2, userBodyWeightKg=70,
     };
 }
 
-// UI helpers - create and manage gym inputs
+// Create and manage gym inputs
 function ensureGymContainer() {
     const containerId = 'gymOptionsContainer';
     let container = document.getElementById(containerId);
@@ -203,7 +197,6 @@ function submitActivityForm(e) {
     .then(data => {
         if (data.success) {
             if (typeof renderHistory === 'function') try { renderHistory(); } catch {}
-            // optional redirect to dashboard
             if (window.currentUserId) {
                 window.location.href = "/dashboard?user_id=" + window.currentUserId;
             }
@@ -217,7 +210,6 @@ function submitActivityForm(e) {
     });
 }
 
-// Attach listeners safely
 document.addEventListener('DOMContentLoaded', () => {
     const intensitySlider = document.getElementById('intensity');
     const intensityValue = document.getElementById('intensityValue');

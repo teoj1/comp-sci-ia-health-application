@@ -24,7 +24,6 @@ import torchvision
 import torchvision.models as models
 import uuid
 
-# removed eager tensorflow/keras imports to avoid import-time failures
 # import tensorflow 
 # from tensorflow import keras
 # from keras import models
@@ -254,9 +253,6 @@ with app.app_context():
 def main():
     return render_template('index.html')
 
-# @app.route('/submit', methods=['POST'])
-# def submit():
-#     return redirect('/dashboard')
 
 @app.route('/dashboard', methods=['GET', 'POST'])
 def dashboard():
@@ -280,7 +276,7 @@ def dashboard():
         db.session.commit()
         return render_template('dashboard.html', user=user)
     else:
-        # For GET requests, you need to get the user_id from query params or session
+        
         user_id = request.args.get('user_id')
         user = db.session.get(User, user_id) if user_id else None
         return render_template('dashboard.html', user=user)
@@ -291,7 +287,7 @@ with open('meals.json', 'r') as f:
 
 @app.route('/food')
 def food():
-    user_id = request.args.get('user_id')  # Or get from session
+    user_id = request.args.get('user_id')  
     return render_template('food.html', user_id=user_id)
 
 def compute_gym_calories(user_weight_kg, gym_exercise=None, duration_min=None, lift_weight_kg=0, intensity=2, reps=0, sets=0, time_per_rep=3.0):
@@ -321,9 +317,7 @@ def compute_gym_calories(user_weight_kg, gym_exercise=None, duration_min=None, l
         duration_min = float(duration_min or 0)
     except Exception:
         duration_min = 0.0
-    # scale by load used (small effect) capped to +50%
     load_scale = 1.0 + min(0.5, (lift_weight_kg or 0) / 200.0)
-    # intensity: expected 1-5 -> convert to ~0.8-1.3
     intensity_scale = 0.8 + ((int(intensity or 2) - 1) * 0.125)
     body_w = float(user_weight_kg or 70.0)
     calories_per_min = met * body_w * 0.0175
@@ -338,7 +332,6 @@ def save_activity():
         return jsonify({'error': 'Invalid user'}), 400
     user = db.session.get(User, user_id)
     activity_type = data.get('activityType')
-    # Accept either duration (minutes) or reps/sets for gym
     duration = int(data.get('duration', 0)) if data.get('duration') is not None else 0
     intensity = int(data.get('intensity', 1))
     # gym-specific fields
@@ -449,9 +442,9 @@ def add_calories():
         # Handle missing or invalid date
         date_str = data.get('date', datetime.utcnow().strftime("%Y-%m-%d"))
         try:
-            date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()  # <-- use .date()
+            date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()  
         except Exception:
-            date_obj = datetime.utcnow().date()  # <-- use .date()
+            date_obj = datetime.date()  
         # Handle ingredients as string or list
         ingredients = data.get('ingredients', '')
         if isinstance(ingredients, list):
@@ -538,7 +531,7 @@ def recommend():
                 continue
             main_word = get_main_word(description)
             if main_word in used_main_words:
-                continue  # Skip if we've already used this main type
+                continue  
             used_main_words.add(main_word)
             recs.append({
                 "id": food.get("fdcId"),
@@ -726,7 +719,7 @@ def api_exercise_recommendation():
     }
     exercises = get_exercises_from_api(params, headers)
 
-    # Heuristics / filtering based on goal (existing logic preserved)
+    # Filtering based on muscle goal 
     if goal in ["weight_loss", "endurance"]:
         cardio_exs = [ex for ex in exercises if "cardio" in (str(ex.get("exerciseType", "")) + str(ex.get("type", "")) + str(ex.get("category", ""))).lower()]
         if not cardio_exs:
@@ -744,7 +737,7 @@ def api_exercise_recommendation():
             stretch_exs = exercises[:5]
         exercises = stretch_exs
 
-    # Apply intensity filtering by using exercise['intensity'] when available, otherwise try heuristics
+    # Apply intensity filtering by using exercise['intensity'] when available
     def exercise_intensity_value(ex):
         try:
             return int(float(ex.get('intensity', ex.get('difficulty', ex.get('level', max_intensity)))))
@@ -948,7 +941,7 @@ def get_spoonacular_estimate(meal_name):
         weight_g = None
         if isinstance(weight_per_serv, dict):
             weight_g = weight_per_serv.get("amount")  # spoonacular uses amount in grams often
-        # per_serving = nut_map already indicates amounts per serving
+       
         per_serving = {k: round(v, 2) for k, v in nut_map.items()}
 
         per_100g = None

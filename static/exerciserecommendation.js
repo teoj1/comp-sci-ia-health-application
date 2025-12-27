@@ -1,4 +1,4 @@
-// Example muscle groups
+// muscle groups
 const MUSCLE_GROUPS = [
     "Chest", "Back", "Shoulders", "Arms", "Legs", "Abdominals", "Glutes", "Calves"
 ];
@@ -30,7 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
         muscleDiv.appendChild(label);
     });
 
-    // Optional: auto-refresh exercises when muscle group selection changes
+    // Auto-refresh exercises when muscle group selection changes
     muscleDiv.addEventListener('change', function() {
         const goal = document.getElementById('goal').value;
         if (goal === 'muscle_gain' || goal === 'flexibility') {
@@ -46,7 +46,7 @@ function showMuscleSelection() {
 function getExercises(lowerIntensity = false) {
     const user_id = window.currentUserId;
     const goal = document.getElementById('goal').value;
-    // Only include 'level' if the user explicitly selected something in the dropdown
+    
     const levelSelect = document.getElementById('level');
     const level = (levelSelect && levelSelect.value) ? levelSelect.value : undefined;
     const gender = window.currentUserGender || 'male';
@@ -63,7 +63,7 @@ function getExercises(lowerIntensity = false) {
         weight,
         lower_intensity: lowerIntensity
     };
-    if (level !== undefined) payload.level = level; // only send if present
+    if (level !== undefined) payload.level = level; 
 
     fetch('/api/exercise_recommendation', {
         method: 'POST',
@@ -113,7 +113,7 @@ function displayExercises(exercises) {
 
 function confirmExercise(exerciseId) {
     alert('Exercise logged!');
-    // Optionally update daily stats here
+    
 }
 
 function regenerateExercises() {
