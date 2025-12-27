@@ -61,7 +61,6 @@ function displayMeals(meals) {
         html += meals[type].map((meal, idx) => `
             <div class="meal-card" data-type="${type}" data-idx="${idx}">
             <h3>${meal.description}</h3>
-            <p><strong>Ingredients:</strong> ${meal.ingredients && meal.ingredients !== "Unknown" ? meal.ingredients : 'Ingredients not found'}</p>
             <p>Calories: ${meal.nutrition.calories} kcal</p>
             <p>Protein: ${meal.nutrition.protein}g</p>
             <p>Carbs: ${meal.nutrition.carbs}g</p>

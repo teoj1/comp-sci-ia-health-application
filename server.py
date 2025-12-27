@@ -24,10 +24,12 @@ import torchvision
 import torchvision.models as models
 import uuid
 
+
 # import tensorflow 
 # from tensorflow import keras
 # from keras import models
 # from keras.models import load_model
+
 
 conn = http.client.HTTPSConnection("exercisedb-api1.p.rapidapi.com")
 # Initialize Flask app first
@@ -35,12 +37,14 @@ USDA_API_KEY = "BQazS4IWGw7VKfBNHFbEJfLPab1wz1ROSZf1xS6K"
 GOOGLE_API_KEY = "AIzaSyCOGmhXar6SGEizGd2vpxznQ7ESSoIPZNA"
 GOOGLE_CSE_ID = "80aa6e2c5b0e44514"
 app = Flask(__name__)
+
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
 app.config['DEBUG'] = True
 
 # Initialize SQLAlchemy with app
 db = SQLAlchemy(app)
-
+with app.app_context():
+    db.create_all()
 # Model constants
 MODEL_PATH = "foodtrainer.h5"
 CLASSES_PATH = "foodtrainer_classes.json"
@@ -253,10 +257,17 @@ with app.app_context():
 def main():
     return render_template('index.html')
 
+# @app.route('/submit', methods=['POST'])
+# def submit():
+#     return redirect('/dashboard')
 
 @app.route('/dashboard', methods=['GET', 'POST'])
 def dashboard():
     if request.method == 'POST':
+        password = request.form['password']
+        confirm_password = request.form.get('confirmPassword')
+        if password != confirm_password:
+            return render_template('dashboard.html', error="Passwords do not match.", user=None)
         user_id = str(uuid.uuid4())
         user = User(
             id=user_id,
@@ -264,7 +275,7 @@ def dashboard():
             lname=request.form['lname'],
             weight=request.form['weight'],
             height=request.form['height'],
-            password=generate_password_hash(request.form['password']),
+            password=generate_password_hash(password),
             gender=request.form['gender'],
             dietary_restrictions=request.form['dietaryRestrictions'],
             activity_level=request.form['activityLevel'],
@@ -276,7 +287,6 @@ def dashboard():
         db.session.commit()
         return render_template('dashboard.html', user=user)
     else:
-        
         user_id = request.args.get('user_id')
         user = db.session.get(User, user_id) if user_id else None
         return render_template('dashboard.html', user=user)
@@ -287,7 +297,7 @@ with open('meals.json', 'r') as f:
 
 @app.route('/food')
 def food():
-    user_id = request.args.get('user_id')  
+    user_id = request.args.get('user_id')  # Or get from session
     return render_template('food.html', user_id=user_id)
 
 def compute_gym_calories(user_weight_kg, gym_exercise=None, duration_min=None, lift_weight_kg=0, intensity=2, reps=0, sets=0, time_per_rep=3.0):
@@ -317,7 +327,9 @@ def compute_gym_calories(user_weight_kg, gym_exercise=None, duration_min=None, l
         duration_min = float(duration_min or 0)
     except Exception:
         duration_min = 0.0
+    # scale by load used (small effect) capped to +50%
     load_scale = 1.0 + min(0.5, (lift_weight_kg or 0) / 200.0)
+    # intensity: expected 1-5 -> convert to ~0.8-1.3
     intensity_scale = 0.8 + ((int(intensity or 2) - 1) * 0.125)
     body_w = float(user_weight_kg or 70.0)
     calories_per_min = met * body_w * 0.0175
@@ -332,14 +344,15 @@ def save_activity():
         return jsonify({'error': 'Invalid user'}), 400
     user = db.session.get(User, user_id)
     activity_type = data.get('activityType')
+    # Accept either duration (minutes) or reps/sets for gym
     duration = int(data.get('duration', 0)) if data.get('duration') is not None else 0
     intensity = int(data.get('intensity', 1))
     # gym-specific fields
-    gym_ex = data.get('gymExercise')
-    lift_w = float(data.get('liftWeight') or 0)
+    gym_ex = data.get('gym_exercise')
+    lift_w = float(data.get('lift_weight') or 0)
     reps = int(data.get('reps') or 0)
     sets = int(data.get('sets') or 0)
-    time_per_rep = float(data.get('timePerRep') or 3.0)
+    time_per_rep = float(data.get('time_per_rep') or 3.0)
 
     if activity_type and activity_type.lower() == 'gym':
         computed_cal, computed_duration = compute_gym_calories(
@@ -442,9 +455,9 @@ def add_calories():
         # Handle missing or invalid date
         date_str = data.get('date', datetime.utcnow().strftime("%Y-%m-%d"))
         try:
-            date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()  
+            date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()  # <-- use .date()
         except Exception:
-            date_obj = datetime.date()  
+            date_obj = datetime.utcnow().date()  # <-- use .date()
         # Handle ingredients as string or list
         ingredients = data.get('ingredients', '')
         if isinstance(ingredients, list):
@@ -500,10 +513,10 @@ def recommend():
 
     recommendations = {}
     def get_main_word(description):
-        # Extract the first non-generic word (not "food", "product", etc.)
+        # Extract the first significant word (not generic modifiers)
         words = re.findall(r'\b[a-zA-Z]+\b', description.lower())
         for w in words:
-            if w not in {"food", "product", "prepared", "style", "type", "brand", "plain", "lowfat", "nonfat", "fatfree", "skim", "whole", "reduced", "original", "natural"}:
+            if w not in {"food", "product", "prepared", "style", "type", "brand", "plain", "lowfat", "nonfat", "fatfree", "skim", "whole", "reduced", "original", "natural", "greek"}:
                 return w
         return words[0] if words else ""
 
@@ -531,7 +544,7 @@ def recommend():
                 continue
             main_word = get_main_word(description)
             if main_word in used_main_words:
-                continue  
+                continue  # Skip if we've already used this main type
             used_main_words.add(main_word)
             recs.append({
                 "id": food.get("fdcId"),
@@ -555,7 +568,7 @@ def recommend():
                 nutrition = extract_nutrition(food, portion_multiplier)
                 main_word = get_main_word(description)
                 if main_word in used_main_words:
-                    continue
+                    continue  # <-- This line ensures no duplicates
                 diff = sum(abs(nutrition[k] - macro_target[k]) for k in macro_target)
                 leftovers.append((diff, {
                     "id": food.get("fdcId"),
@@ -719,7 +732,7 @@ def api_exercise_recommendation():
     }
     exercises = get_exercises_from_api(params, headers)
 
-    # Filtering based on muscle goal 
+    # Heuristics / filtering based on goal (existing logic preserved)
     if goal in ["weight_loss", "endurance"]:
         cardio_exs = [ex for ex in exercises if "cardio" in (str(ex.get("exerciseType", "")) + str(ex.get("type", "")) + str(ex.get("category", ""))).lower()]
         if not cardio_exs:
@@ -737,7 +750,7 @@ def api_exercise_recommendation():
             stretch_exs = exercises[:5]
         exercises = stretch_exs
 
-    # Apply intensity filtering by using exercise['intensity'] when available
+    # Apply intensity filtering by using exercise['intensity'] when available, otherwise try heuristics
     def exercise_intensity_value(ex):
         try:
             return int(float(ex.get('intensity', ex.get('difficulty', ex.get('level', max_intensity)))))
@@ -912,7 +925,15 @@ def get_spoonacular_estimate(meal_name):
             return {"error": "search_failed", "status": sresp.status_code}
         results = sresp.json().get("results", [])
         if not results:
-            return {"error": "no_recipe_found"}
+            # Try Google Custom Search as a fallback
+            google_ingredients = search_ingredients_google(meal_name)
+            if google_ingredients and google_ingredients != "Ingredients not found":
+                return {
+                    "ingredients": google_ingredients,
+                    "per_100g": None,
+                    "per_serving": None
+                }
+            return {"error": "no_recipe_found", "ingredients": "Ingredients not found"}
 
         recipe_id = results[0]["id"]
         info_url = f"https://api.spoonacular.com/recipes/{recipe_id}/information"
@@ -941,7 +962,7 @@ def get_spoonacular_estimate(meal_name):
         weight_g = None
         if isinstance(weight_per_serv, dict):
             weight_g = weight_per_serv.get("amount")  # spoonacular uses amount in grams often
-       
+        # per_serving = nut_map already indicates amounts per serving
         per_serving = {k: round(v, 2) for k, v in nut_map.items()}
 
         per_100g = None

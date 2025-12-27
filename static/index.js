@@ -1,4 +1,4 @@
- document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function() {
     
     // gathering input values
     const form = document.getElementById('healthForm');
@@ -45,8 +45,8 @@
     const displayFoodPreferences = document.getElementById('displayFoodPreferences');
 
     // displaying content 
-    form.addEventListener('dashboard', function(event) {
-        event.preventDefault();
+    
+    form.addEventListener('submit', function(event) {
         // trimming input values 
         const fname = document.getElementById('fname').value.trim();
         const lname = document.getElementById('lname').value.trim();
@@ -83,7 +83,7 @@
             return;
         }
         if (password !== password2) {
-            alert('Passwords do not match. Please try again.');
+            alert('Password must be the same');
             event.preventDefault();
             return;
         }
@@ -116,6 +116,8 @@
             alert('Please enter any food preferences you may have.');
             event.preventDefault();
             return;
-        } 
-       });
+        }
+        // If all validations pass, do NOT call event.preventDefault()
+        // The form will submit and redirect to dashboard as expected
+    });
 });

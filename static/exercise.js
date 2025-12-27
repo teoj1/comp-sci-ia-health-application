@@ -1,4 +1,10 @@
-
+/*
+  Exercise form frontend
+  - Handles normal activities (duration in minutes)
+  - Handles gym entries (sets, reps, time per rep, restBetween, load)
+  - Uses MET formula: calories/min = MET * bodyweight(kg) * 0.0175
+  - Gym calories are scaled by load relative to bodyweight and an intensity multiplier
+*/
 
 // MET-based simple calculator for cardio/other
 function calculateCalories(type, durationMin, intensity) {
@@ -62,7 +68,7 @@ function calculateGymCalories({ durationMin=0, intensity=2, userBodyWeightKg=70,
     };
 }
 
-// Create and manage gym inputs
+// UI helpers - create and manage gym inputs
 function ensureGymContainer() {
     const containerId = 'gymOptionsContainer';
     let container = document.getElementById(containerId);
@@ -178,13 +184,12 @@ function submitActivityForm(e) {
     };
 
     if (activityTypeVal.toLowerCase() === 'gym') {
-        payload.gymExercise = document.getElementById('gymExercise')?.value || '';
-        payload.liftWeight = parseFloat(document.getElementById('liftWeight')?.value || '0');
+        payload.gym_exercise = document.getElementById('gymExercise')?.value || '';
+        payload.lift_weight = parseFloat(document.getElementById('liftWeight')?.value || '0');
         payload.sets = parseInt(document.getElementById('gymSets')?.value || '0');
         payload.reps = parseInt(document.getElementById('gymReps')?.value || '0');
-        payload.timePerRep = parseFloat(document.getElementById('timePerRep')?.value || '3');
-        payload.restBetween = parseFloat(document.getElementById('restBetween')?.value || '60');
-        // duration was updated by updateCalories to reflect derived minutes
+        payload.time_per_rep = parseFloat(document.getElementById('timePerRep')?.value || '3');
+        payload.rest_between = parseFloat(document.getElementById('restBetween')?.value || '60');
         payload.duration = parseInt(document.getElementById('duration')?.value || payload.duration);
     }
 
@@ -197,6 +202,7 @@ function submitActivityForm(e) {
     .then(data => {
         if (data.success) {
             if (typeof renderHistory === 'function') try { renderHistory(); } catch {}
+            // optional redirect to dashboard
             if (window.currentUserId) {
                 window.location.href = "/dashboard?user_id=" + window.currentUserId;
             }
@@ -210,6 +216,52 @@ function submitActivityForm(e) {
     });
 }
 
+// Render activity history
+function renderHistory() {
+    const from = document.getElementById('filterFrom').value;
+    const to = document.getElementById('filterTo').value;
+    const type = document.getElementById('filterType').value;
+
+    let url = `/api/activity?user_id=${window.currentUserId}`;
+    if (from) url += `&from=${from}`;
+    if (to) url += `&to=${to}`;
+    if (type) url += `&type=${encodeURIComponent(type)}`;
+
+    fetch(url)
+        .then(res => res.json())
+        .then(filtered => {
+            let html = '';
+            if (!filtered || filtered.length === 0) {
+                html = '<p style="color:#888;">No activity records found for the selected filter.</p>';
+            } else {
+                html = `<table class="activity-table">
+                    <thead>
+                        <tr>
+                            <th>Type</th>
+                            <th>Duration (min)</th>
+                            <th>Intensity</th>
+                            <th>Calories</th>
+                            <th>Date & Time</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${filtered.map(e => `
+                            <tr>
+                                <td>${e.activityType}</td>
+                                <td>${e.duration}</td>
+                                <td>${e.intensity}</td>
+                                <td>${e.calories}</td>
+                                <td>${e.dateTime.replace('T', ' ').replace('Z','')}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>`;
+            }
+            document.getElementById('historyTable').innerHTML = html;
+        });
+}
+
+// Attach listeners safely
 document.addEventListener('DOMContentLoaded', () => {
     const intensitySlider = document.getElementById('intensity');
     const intensityValue = document.getElementById('intensityValue');
@@ -243,4 +295,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // initial UI setup
     onActivityTypeChange();
     updateCalories();
+    renderHistory();
+
+    document.getElementById('applyFilters').addEventListener('click', renderHistory);
 });
