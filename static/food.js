@@ -24,7 +24,7 @@ function handleImageUpload(event) {
         reader.readAsDataURL(file);
     }
 }
-
+// Initialize event listeners on DOM load
 
 document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('generateMealsBtn').addEventListener('click', loadMeals);
@@ -35,14 +35,14 @@ document.addEventListener('DOMContentLoaded', () => {
     
 });
 
-
+// Fetch meal recommendations from backend
 function loadMeals() {
     fetch('/recommend?user_id=' + window.currentUserId)
         .then(response => response.json())
         .then(data => displayMeals(data));
 }
 
-
+// Display meal recommendations in the UI
 function displayMeals(meals) {
   const mealSections = document.getElementById('mealSections');
   mealSections.innerHTML = ''; // Clear previous output

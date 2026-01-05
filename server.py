@@ -41,16 +41,17 @@ app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
 app.config['DEBUG'] = True
 
-# Initialize SQLAlchemy with app
+# Initialize SQLAlchemy with app for database purposes
 db = SQLAlchemy(app)
 with app.app_context():
     db.create_all()
-# Model constants
+# model loading, defining the variables for easier calling for later when implementing the model into the application
 MODEL_PATH = "foodtrainer.h5"
 CLASSES_PATH = "foodtrainer_classes.json"
 food_model = None
 CLASS_LABELS = []
 
+## establishing the class for the food classifier using pytorch with specific parameters
 class FoodClassifierPyTorch(nn.Module):
     def __init__(self, num_classes):
         super().__init__()
@@ -66,7 +67,7 @@ class FoodClassifierPyTorch(nn.Module):
 
     def forward(self, x):
         return self.backbone(x)
-
+## trying to load the model, but not yet into the application
 def ensure_model_loaded():
     """Safe model loading with error handling"""
     global food_model, CLASS_LABELS
@@ -103,19 +104,23 @@ def ensure_model_loaded():
     except Exception as e:
         print(f"Error loading model: {str(e)}")
         return False
+    
 
+
+### function calling the model in the backend and calling the food classification model to try and identify the food that the user has uploaded
 @app.route('/api/predict_food', methods=['POST'])
 def predict_food():
+    ## conditional statements to check whether the model has loaded or not 
     if not ensure_model_loaded():
         return jsonify({"error": "Model failed to load"}), 500
 
     if 'image' not in request.files:
         return jsonify({"error": "No image uploaded"}), 400
-
+    
     file = request.files['image']
     if file.filename == '':
         return jsonify({"error": "Empty filename"}), 400
-
+    ### error handling, making sure that the image is uploaded and can be predicted based on the food classes defined 
     try:
         # Load and preprocess image
         image = Image.open(file.stream).convert('RGB')
@@ -128,7 +133,7 @@ def predict_food():
         
         input_tensor = transform(image).unsqueeze(0)
         
-        # Get prediction
+        # Get prediction from the model 
         with torch.no_grad():
             outputs = food_model(input_tensor)
             probabilities = torch.nn.functional.softmax(outputs[0], dim=0)
@@ -144,7 +149,7 @@ def predict_food():
     except Exception as e:
         print(f"Prediction error: {str(e)}")
         return jsonify({"error": str(e)}), 500
-
+### setting the portion map for the different meals throughout the day (based on splitting)
 portion_map = {
     'breakfast': 2,
     'lunch': 3,
@@ -152,6 +157,7 @@ portion_map = {
     'snack': 0.3
 }
 
+### loading the food model 
 def load_food_model():
     """Lazy load the model only when needed"""
     global food_model
@@ -165,17 +171,20 @@ def load_food_model():
             food_model = None
     return food_model
 
+## doing external API searches, fetching a list of possible meals that could be recommended to the user based on their macronutrients, preferences and allergies 
 def fetch_usda_meals(category_keywords, user_allergies, wanted_count=3):
     url = f"https://api.nal.usda.gov/fdc/v1/foods/search?api_key={USDA_API_KEY}"
     payload = {
         "query": ", ".join(category_keywords),
-        "pageSize": 30,  # Fetch more for variety
+        "pageSize": 30,  # Fetch more meals for variety and enhance diversity
         "dataType": ["Foundation", "SR Legacy", "Survey (FNDDS)"]
     }
+    
+    ## retrieving a bunch of possible meal recommendations into a json file 
     resp = requests.post(url, json=payload)
     foods = resp.json().get('foods', [])
     safe_foods = []
-    # Expanded exclusion list for processed/unfresh foods
+    # Expanded exclusion list for processed/unfresh foods which can be used for result parsing later 
     exclusion_terms = [
         "baby", "infant", "toddler", "formula", "gerber",
         "frozen", "ready-to-heat", "ready to heat", "ready meal", "microwave",
@@ -205,7 +214,7 @@ def fetch_usda_meals(category_keywords, user_allergies, wanted_count=3):
         import random
         return random.sample(safe_foods, wanted_count)
     return safe_foods
-
+### loading the database for the class definitions for user, meal and activity to store the data into the database
 class User(db.Model):
     id = db.Column(db.String(36), primary_key=True)  # UUID
     fname = db.Column(db.String(100))
@@ -220,7 +229,7 @@ class User(db.Model):
     allergies = db.Column(db.String(200))
     food_preferences = db.Column(db.String(200))
     
-
+### loading the meal class for storing meal data into the database
 class Meal(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.String(36), db.ForeignKey('user.id'))
@@ -232,7 +241,7 @@ class Meal(db.Model):
     description = db.Column(db.String(200))
     ingredients = db.Column(db.String(500))
 
-
+### loading the activity class for storing activity data into the database
 
 class Activity(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -242,7 +251,7 @@ class Activity(db.Model):
     intensity = db.Column(db.Integer) # 1-5
     calories = db.Column(db.Integer)
     timestamp = db.Column(db.DateTime)
-    # new gym-specific fields
+    # gym-specific attributes and variables that can be stored into the database 
     gym_exercise = db.Column(db.String(100), nullable=True)
     lift_weight = db.Column(db.Float, nullable=True)
     reps = db.Column(db.Integer, nullable=True)
@@ -252,7 +261,7 @@ class Activity(db.Model):
 # Create tables
 with app.app_context():
     db.create_all()
-
+### loading the main form for first-time sign-in 
 @app.route('/')
 def main():
     return render_template('index.html')
@@ -261,6 +270,7 @@ def main():
 # def submit():
 #     return redirect('/dashboard')
 
+### loading the dashboard route for the user to input their data into the database
 @app.route('/dashboard', methods=['GET', 'POST'])
 def dashboard():
     if request.method == 'POST':
@@ -291,15 +301,14 @@ def dashboard():
         user = db.session.get(User, user_id) if user_id else None
         return render_template('dashboard.html', user=user)
 
-
 with open('meals.json', 'r') as f:
     MEALS = json.load(f)
-
+### allowing the user to transfer to the food section of the application
 @app.route('/food')
 def food():
     user_id = request.args.get('user_id')  # Or get from session
     return render_template('food.html', user_id=user_id)
-
+### defining the function to compute gym calories based on user weight, exercise type, duration, lift weight, intensity, reps, sets and time per rep
 def compute_gym_calories(user_weight_kg, gym_exercise=None, duration_min=None, lift_weight_kg=0, intensity=2, reps=0, sets=0, time_per_rep=3.0):
     """
     Compute calories for gym strength exercise.
@@ -335,7 +344,7 @@ def compute_gym_calories(user_weight_kg, gym_exercise=None, duration_min=None, l
     calories_per_min = met * body_w * 0.0175
     total = calories_per_min * duration_min * load_scale * intensity_scale
     return int(round(total)), round(duration_min)
-
+### defining the route and function to save activity data into the database
 @app.route('/api/activity', methods=['POST'])
 def save_activity():
     data = request.get_json()
@@ -353,7 +362,7 @@ def save_activity():
     reps = int(data.get('reps') or 0)
     sets = int(data.get('sets') or 0)
     time_per_rep = float(data.get('time_per_rep') or 3.0)
-
+    ### computing the gym calories based on the user input and storing it into the database
     if activity_type and activity_type.lower() == 'gym':
         computed_cal, computed_duration = compute_gym_calories(
             user.weight or 70.0,
@@ -370,7 +379,7 @@ def save_activity():
     else:
         calories_val = int(data.get('calories', 0))
         duration_to_store = duration
-
+    ### attempting to load the activity input into the database based on the user's unique ID 
     try:
         activity = Activity(
             user_id=user_id,
@@ -391,6 +400,7 @@ def save_activity():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+### defining the route and function to get activity data from the database based on user input and filtering variables
 @app.route('/api/activity', methods=['GET'])
 def get_activity():
     ## checking if user is valid 
@@ -409,6 +419,7 @@ def get_activity():
     if activity_type:
         query = query.filter_by(activity_type=activity_type)
     activities = query.order_by(Activity.timestamp.desc()).all()
+    ## outputting the value as a json file for easier parsing on the frontend, allowing the user to look at their past activity history
     return jsonify([
         {
             'id': a.id,
@@ -424,7 +435,7 @@ def get_activity():
             'timePerRep': a.time_per_rep
         } for a in activities
     ])
-
+### defining the function to extract nutrition data from the food json file retrieved from the USDA API
 def extract_nutrition(food, portion_multiplier=1):
     macros = {'protein': None, 'fat': None, 'carbs': None, 'calories': None}
     for nut in food.get("foodNutrients", []):
@@ -443,7 +454,7 @@ def extract_nutrition(food, portion_multiplier=1):
             macros[k] = 0
         macros[k] = round(macros[k] * portion_multiplier)
     return macros
-
+### route and function to record calories into the database based on user input
 @app.route('/record_calories', methods=['POST'])
 def add_calories():
     data = request.json
@@ -455,9 +466,9 @@ def add_calories():
         # Handle missing or invalid date
         date_str = data.get('date', datetime.utcnow().strftime("%Y-%m-%d"))
         try:
-            date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()  # <-- use .date()
+            date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()  
         except Exception:
-            date_obj = datetime.utcnow().date()  # <-- use .date()
+            date_obj = datetime.utcnow().date()  
         # Handle ingredients as string or list
         ingredients = data.get('ingredients', '')
         if isinstance(ingredients, list):
@@ -478,7 +489,7 @@ def add_calories():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-
+### main recommendation algorithm function 
 @app.route('/recommend')
 def recommend():
     user_id = request.args.get('user_id')
@@ -489,28 +500,28 @@ def recommend():
     allergies = [a.strip().lower() for a in user.allergies.split(',') if a.strip()] if user.allergies else []
     food_preferences = [fp.strip().lower() for fp in user.food_preferences.split(',') if fp.strip()] if user.food_preferences else []
 
-    # Macronutrient targets
+    # Macronutrient targets for the beginning of each day session
     daily_macros = {
         "calories": 1800,
         "protein": 75,
         "carbs": 350,
         "fat": 50
     }
-    # Proportions
+    # Proportions which were defined earlier for each meal throughout the day, with snacks having a bit of randomness as it depends on the snack itself
     proportions = {
         "breakfast": 0.25,
         "lunch": 0.3,
         "dinner": 0.35,
         "snacks": random.uniform(0.05, 0.1)
     }
-
+    ### defining meal keywords that can be used to search for meals in the USDA API
     meal_keywords = {
         'breakfast': ['eggs', 'oatmeal', 'yogurt', 'fruit', 'cereal', 'toast'],
         'lunch': ['salad', 'sandwich', 'chicken', 'rice', 'soup', 'beef'],
         'dinner': ['fish', 'steak', 'pasta', 'vegetables', 'curry'],
         'snacks': ['nuts', 'bar', 'cheese', 'fruit', 'yogurt']
     }
-
+    ### establishing a dictionary for the final recommendations that will be list, as it allows for a lot more different variables for each meal identified 
     recommendations = {}
     def get_main_word(description):
         # Extract the first significant word (not generic modifiers)
@@ -519,7 +530,7 @@ def recommend():
             if w not in {"food", "product", "prepared", "style", "type", "brand", "plain", "lowfat", "nonfat", "fatfree", "skim", "whole", "reduced", "original", "natural", "greek"}:
                 return w
         return words[0] if words else ""
-
+    ### iterating through each meal category and fetching meals from the USDA API based on the defined keywords, allergies and macronutrient targets
     for category, keywords in meal_keywords.items():
         # Shuffle keywords for variety
         random.shuffle(keywords)
@@ -586,17 +597,18 @@ def recommend():
 
         recommendations[category] = recs
     return jsonify(recommendations)
+### defining the route and function to load the exercise page for the user to input their activity data into the database
 @app.route('/activitylog')
 def exercise(): 
     user_id = request.args.get('user_id')
     return render_template('exercise.html', user_id=user_id)
-
+### defining the route and function to load the exercise recommendation page for the user to get exercise recommendations based on their goal and activity level
 @app.route('/exerciserecommendation')
 def exercise_recommendation():
     user_id = request.args.get('user_id')
     user = db.session.get(User, user_id)
     return render_template('exerciserecommendation.html', user_goal = user.goal, user_level = user.activity_level)
-
+### defining the function to search for ingredients using Google Custom Search API
 def search_ingredients_google(meal_name):
     search_query = f"{meal_name} ingredients"
     url = "https://www.googleapis.com/customsearch/v1"
@@ -606,6 +618,7 @@ def search_ingredients_google(meal_name):
         "q": search_query,
         "num": 1
     }
+    ### making the request to the Google API and parsing the response to extract ingredients
     resp = requests.get(url, params=params)
     print("Google API response:", resp.text)
     if resp.status_code == 200:
@@ -625,7 +638,7 @@ def search_ingredients_google(meal_name):
                     return ", ".join(parts)
                 return snippet.strip()
     return "Ingredients not found"
-
+### defining the function to search for ingredients using Spoonacular API which will be the first choice before using google api search 
 def search_ingredients_spoonacular(meal_name):
     SPOONACULAR_API_KEY = "9c2f3b3991c64a47bcd00d3ae163cd84"
     # Step 1: Search for the recipe
@@ -652,7 +665,7 @@ def search_ingredients_spoonacular(meal_name):
                 ingredients = [i.rstrip('...').strip() for i in ingredients]
                 return ", ".join(ingredients) if ingredients else "Ingredients not found"
     return "Ingredients not found"
-
+### defining the function to get exercises from the external exercise API based on user input parameters
 def get_exercises_from_api(params, headers):
     base_url = "https://exercisedb-api1.p.rapidapi.com/api/v1/exercises"
     # Build query string from params
@@ -673,7 +686,7 @@ def get_exercises_from_api(params, headers):
             exercises = data_json
         return exercises
     return []
-
+### defining the route and function to get exercise recommendations based on user input and stored data
 @app.route('/api/exercise_recommendation', methods=['POST'])
 def api_exercise_recommendation():
     data = request.json
@@ -715,7 +728,7 @@ def api_exercise_recommendation():
     else:
         exercise_type = ""
         body_parts = ""
-
+    ### limiting the amount of exercise recommendations to 50 and making the request to the external exercise API, and can speed up the recommendation process 
     params = {
         "limit": 50,
         "goal": goal,
@@ -726,6 +739,7 @@ def api_exercise_recommendation():
         "bodyParts": body_parts,
         "exerciseType": exercise_type,
     }
+    ### defining the headers for the external exercise API request
     headers = {
         "X-RapidAPI-Key": "59a253f828msh019e8f4b915bb68p16511fjsn8bb17ce03e4e",
         "X-RapidAPI-Host": "exercisedb-api1.p.rapidapi.com"
@@ -779,7 +793,7 @@ def api_exercise_recommendation():
 
     recommendations = filtered_exercises[:5] if filtered_exercises else []
     return jsonify({"recommendations": recommendations})
-
+### dashboard function for displaying charts and statistics on the dahsboard 
 def get_user_stats(user_id):
     # Aggregate diet logs
     user = db.session.get(User, user_id)
@@ -839,16 +853,16 @@ def get_user_stats(user_id):
         "ex_calories_7d": ex_calories_7d[::-1],
         "intensity_dist": intensity_counts
     }
-
+### caching the user stats to reduce load on the database for frequent requests
 def get_cached_stats(user_id):
     return get_user_stats(user_id)
-
+### defining the route and function to get dashboard statistics for the user based on their unique ID
 @app.route('/api/dashboard_stats')
 def dashboard_stats():
     user_id = request.args.get('user_id')
     stats = get_user_stats(user_id)
     return jsonify(stats)
-
+### defining the route and function to get daily summary of macronutrients and exercise for the user based on their unique ID
 @app.route('/api/daily_summary')
 def daily_summary():
     user_id = request.args.get('user_id')
@@ -889,6 +903,7 @@ def daily_summary():
         "macronutrients": total_macros,
         "exercise": total_exercise
     })
+### defining the route and function to get meal history for the user based on their unique ID and filtering variables
 @app.route('/api/meal_history', methods=['GET'])
 def get_meal_history():
     user_id = request.args.get('user_id')
@@ -914,7 +929,7 @@ def get_meal_history():
             'fat': m.fat
         } for m in meals
     ])
-
+### using spoonacular as a function to get nutritional estimates and ingredients for the meal that has been selected or uploaded to the user database 
 def get_spoonacular_estimate(meal_name):
     """Return ingredients, per_serving and per_100g nutrition (calories, protein, carbs, fat) if available."""
     SPOONACULAR_API_KEY = "9c2f3b3991c64a47bcd00d3ae163cd84"
@@ -983,7 +998,7 @@ def get_spoonacular_estimate(meal_name):
     except Exception as e:
         return {"error": "exception", "message": str(e)}
 
-
+### defining the route and function for predicting and estimating the nutritional information from the uploaded image using the trained model and Spoonacular API based on the class name identified by the model 
 @app.route('/api/predict_and_estimate', methods=['POST'])
 def predict_and_estimate():
     """Predict class from image, query Spoonacular, estimate per-portion macros using portion_map."""
@@ -1047,6 +1062,7 @@ def predict_and_estimate():
     except Exception as e:
         print(f"predict_and_estimate error: {e}")
         return jsonify({"error": str(e)}), 500
-
+### running the application 
+## terminal run: python -m flask --app server run 
 if __name__== '__main__':
     app.run(debug=True)

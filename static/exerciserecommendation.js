@@ -4,8 +4,9 @@ const MUSCLE_GROUPS = [
 ];
 
 let lastRecommendations = [];
-
+// initialize event listeners on DOM load
 document.addEventListener('DOMContentLoaded', () => {
+    // show muscle selection when goal changes
     document.getElementById('goal').addEventListener('change', function() {
         if (this.value === 'muscle_gain' || this.value === 'flexibility') {
             showMuscleSelection();
@@ -13,11 +14,10 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('muscleSelection').style.display = 'none';
         }
     });
-
+    // fetch exercise recommendations when button clicked
     document.getElementById('generateExerciseBtn').addEventListener('click', function() {
         getExercises();
     });
-
     document.getElementById('getExercisesBtn').addEventListener('click', function() {
         getExercises();
     });
@@ -38,11 +38,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
-
+// show muscle selection div for the user selection of muscle group 
 function showMuscleSelection() {
     document.getElementById('muscleSelection').style.display = '';
 }
-
+// fetch exercise recommendations function from backend
 function getExercises(lowerIntensity = false) {
     const user_id = window.currentUserId;
     const goal = document.getElementById('goal').value;
@@ -76,7 +76,7 @@ function getExercises(lowerIntensity = false) {
         displayExercises(data.recommendations);
     });
 }
-
+// based on the recommended exercises from the function in the backend, this function displays them in the UI for the user to refer to for their purpose 
 function displayExercises(exercises) {
     const div = document.getElementById('exerciseResults');
     if (!exercises.length) {
@@ -110,12 +110,12 @@ function displayExercises(exercises) {
         return `<div class="exercise-card">${details}</div>`;
     }).join('') + `<button onclick="regenerateExercises()">Regenerate</button>`;
 }
-
+// confirming that the exercise has been done by the user
 function confirmExercise(exerciseId) {
     alert('Exercise logged!');
     
 }
-
+//  regenerate lower intensity exercises
 function regenerateExercises() {
     getExercises(true); // Pass true to indicate lower intensity
 }

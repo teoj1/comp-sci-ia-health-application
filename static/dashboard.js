@@ -1,5 +1,5 @@
 let macroChart, calorieTrendChart, exerciseTrendChart, intensityPieChart;
-
+// retrieving user statistics from the backend API
 function fetchStats() {
     fetch('/api/dashboard_stats?user_id=' + window.currentUserId)
         .then(res => res.json())
@@ -108,7 +108,7 @@ function updateDashboard(stats) {
     }
     document.getElementById('dailySuggestions').innerHTML = nudge || 'Great job! Keep it up!';
 }
-
+// fetch and display daily summary of macros and exercise
 function fetchDailySummary() {
     fetch('/api/daily_summary?user_id=' + window.currentUserId)
         .then(res => res.json())

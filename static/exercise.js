@@ -111,7 +111,7 @@ function ensureGymContainer() {
     }
     return container;
 }
-
+// Handle activity type changes
 function onActivityTypeChange() {
     const activityTypeEl = document.getElementById('activityType');
     if (!activityTypeEl) return;
@@ -134,7 +134,7 @@ function updateCalories() {
     const intensity = intensityEl ? parseInt(intensityEl.value || '2') : 2;
     const caloriesEl = document.getElementById('calories');
     const durationEl = document.getElementById('duration');
-
+    // gym specific inputs for caloric calculations 
     if (type.toLowerCase() === 'gym') {
         const gymExercise = (document.getElementById('gymExercise')?.value) || 'squat';
         const liftWeight = parseFloat(document.getElementById('liftWeight')?.value) || 0;
